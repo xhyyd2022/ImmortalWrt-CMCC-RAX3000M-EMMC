@@ -369,6 +369,9 @@ jobs:
             echo "设备型号: ${{ matrix.device_model }}"
             echo "编译时间: $(date +'%Y-%m-%d %H:%M %Z')"
             echo "高功率模式: $([ "$ENABLE_5G_25DB" = 'true' ] && echo '已启用' || echo '未启用')"
+            echo "源仓库 URL: $REPO_URL"
+            echo "源仓库分支: $REPO_BRANCH"
+            echo "配置文件: $CONFIG_FILE"
             echo -e "\n### 更新内容"
             git log --pretty=format:"- %s" -n 5
           } > release.txt
