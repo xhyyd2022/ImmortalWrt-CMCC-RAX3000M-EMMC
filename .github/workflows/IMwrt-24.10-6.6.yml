@@ -33,16 +33,12 @@ on:
         type: choice
         options:
           - 'openwrt-24.10-6.6'
-          - '2410'
       config_file:
         description: '配置文件'
         default: '24.10-6.6.config'
         type: choice
         options:
           - '24.10-6.6.config'
-          - '2410.config'
-          - '2410-custom.config'
-          - 'mt7981-ax3000.config'
       ssh:
         description: 'SSH connection to Actions'
         type: boolean
@@ -61,8 +57,8 @@ env:
   REPO_BRANCH: ${{ github.event.inputs.repo_branch || 'openwrt-24.10-6.6' }}
   FEEDS_CONF: feeds.conf.default
   CONFIG_FILE:  ${{ github.event.inputs.config_file || '24.10-6.6.config' }}
-  DIY_P1_SH: scripts/diy-part1.sh
-  DIY_P2_SH: scripts/diy-part2.sh
+  DIY_P1_SH: scripts/24.10-6.6/diy-part1.sh
+  DIY_P2_SH: scripts/24.10-6.6/diy-part2.sh
   UPLOAD_FIRMWARE: true
   UPLOAD_RELEASE: true
   TZ: Asia/Shanghai
