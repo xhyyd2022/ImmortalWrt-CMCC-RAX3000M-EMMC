@@ -48,9 +48,4 @@
 ## 源码
 - 本工作流基于 [padavanonly/immortalwrt-mt798x-24.10](https://github.com/padavanonly/immortalwrt-mt798x-24.10)。
 - 分支：`2410`。
-
-## 贡献
-欢迎提交 Issue 或 Pull Request，优化工作流或添加新功能！
-
-## 许可证
-本项目遵循 MIT 许可证，详情见 [LICENSE](LICENSE)。
+- 工作流：[ImmortalWrt-Builder-24.10](https://github.com/hhCodingCat/ImWRT-798X)
