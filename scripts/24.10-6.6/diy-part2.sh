@@ -20,8 +20,12 @@ else
   echo "警告：$CONFIG_FILE 不存在，跳过 IP 修改"
 fi
 
-# 预装 OpenClash（已注释，保持不变）
-# echo "CONFIG_PACKAGE_luci-app-openclash=y" >> .config
+# 预装
+# OpenClash
+echo "CONFIG_PACKAGE_luci-app-openclash=y" >> .config
+# 微信推送
+echo "CONFIG_PACKAGE_luci-app-wechatpush=y" >> .config
+echo "CONFIG_PACKAGE_luci-i18n-wechatpush-zh-cn=y" >> .config
 
 # 删除 package/mtk/drivers/mt_wifi/files/mt7981-default-eeprom/e2p
 rm -f package/mtk/drivers/mt_wifi/files/mt7981-default-eeprom/e2p
