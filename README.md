@@ -1,1 +1,56 @@
-# ImmortalWrt-CMCC-RAX3000M-EMMC
+# ImmortalWrt-Builder-24.10
+
+这是一个用于自动编译 [ImmortalWrt 24.10](https://github.com/padavanonly/immortalwrt-mt798x-24.10) 固件的 GitHub Actions 工作流，专为 CMCC 系列设备（基于 MediaTek MT7981）设计。支持每天检查源码更新、自动编译固件，并将 `sysupgrade.bin` 文件上传到 GitHub Release。
+
+## 功能
+- **支持的设备**：
+  - cmcc_rax3000m-emmc
+  - cmcc_rax3000m-emmc-usboffload
+- **自动编译**：每天（北京时间 08:00）检查源仓库更新，若有新提交，自动为所有 CMCC RAX3000m emmc 机型编译固件。
+- **5G 25dB 增强**：支持启用 5G 高功率模式（默认启用，定时编译时固定启用，手动编译可选）。
+- **固件上传**：仅上传 `sysupgrade.bin` 文件到 GitHub Release，无 ZIP 压缩。
+- **清理机制**：保留最近 30 个 GitHub Release 和 30 次工作流运行，自动删除旧记录以节省空间。
+
+## 使用方法
+
+### 1. 配置仓库
+- Fork 或克隆本仓库到你的 GitHub 账户。
+
+### 2. 手动触发编译
+- 进入仓库的 **Actions** 页面，选择 `ImmortalWrt-Builder-24.10` 工作流。
+- 点击 **Run workflow**，选择：
+  - `device_model`：目标 CMCC 设备型号。
+  - `enable_5g_25db`：是否启用 5G 25dB 增强（默认：启用）。
+- 运行后，固件将上传到 GitHub Release 。
+
+### 3. 编译失败
+ - 在创建发布时失败：HTTP 403: Resource not accessible by integration (https://api.github.com/repos/PlanetEditorX/ImWRT-798X/releases)
+  - 在 fork 仓库下新建一个 Personal Access Token (classic)（需要 repo 权限），在仓库 Secrets 里添加，比如叫 GH_TOKEN，然后 workflow 里用它替换 GITHUB_TOKEN
+
+
+### 4. 定时触发
+- 无需手动操作，工作流每天（UTC 00:00，北京时间 08:00）检查源仓库 `padavanonly/immortalwrt-mt798x-24.10` 的 `2410` 分支。
+- 如果有更新，自动为所有 CMCC 机型编译固件，并上传 `sysupgrade.bin`。
+
+### 5. 下载固件
+- **GitHub Release**：在仓库的 **Releases** 页面查找 `v24.10-<device_model>` 标签，下载 `sysupgrade.bin`。
+
+### 6. 刷写固件
+- 确认设备型号与固件匹配。
+- 备份设备原有固件。
+- 使用 Web 界面或 SSH 刷入 `sysupgrade.bin` 文件。
+
+## 注意事项
+- **风险提示**：刷写固件可能导致设备变砖，请谨慎操作，确保固件与设备型号完全匹配。
+- **编译时间**：单设备编译可能需要 1-2 小时，视 GitHub Actions 资源而定。
+- **5G 25dB 增强**：高功率模式可能受当地法规限制，请确认合法性后再使用。
+
+## 源码
+- 本工作流基于 [padavanonly/immortalwrt-mt798x-24.10](https://github.com/padavanonly/immortalwrt-mt798x-24.10)。
+- 分支：`2410`。
+
+## 贡献
+欢迎提交 Issue 或 Pull Request，优化工作流或添加新功能！
+
+## 许可证
+本项目遵循 MIT 许可证，详情见 [LICENSE](LICENSE)。
