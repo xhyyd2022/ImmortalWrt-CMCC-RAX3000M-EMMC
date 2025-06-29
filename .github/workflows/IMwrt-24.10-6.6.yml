@@ -67,7 +67,7 @@ env:
   UPLOAD_RELEASE: true
   TZ: Asia/Shanghai
   ENABLE_5G_25DB: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.enable_5g_25db || secrets.ENABLE_5G_25DB || 'true' }}
-  GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
+  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN  }}
 
 jobs:
   check-source-updates:
@@ -406,7 +406,7 @@ jobs:
         run: |
           gh release create "$RELEASE_TAG" --title "$RELEASE_TAG" --notes-file "${{ github.workspace }}/release.txt" --repo ${{ github.repository }} --target ${{ github.sha }}
         env:
-          GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN  }}
 
       - name: 查找固件文件
         id: find_firmware
@@ -424,13 +424,13 @@ jobs:
       - name: 上传固件到 Release
         if: steps.find_firmware.outputs.found == 'true'
         env:
-          GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN  }}
         run: |
           gh release upload "$RELEASE_TAG" "$ASSET_PATH" --repo ${{ github.repository }} --clobber
 
       - name: 验证Release创建
         run: |
-          curl -s -H "Authorization: token ${{ secrets.GH_TOKEN }}" \
+          curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN  }}" \
           https://api.github.com/repos/${{ github.repository }}/releases/tags/$RELEASE_TAG | jq .
           if [ $? -ne 0 ]; then
             echo "错误：Release 创建失败"
@@ -442,7 +442,7 @@ jobs:
         if: steps.tag.outputs.status == 'success'
         continue-on-error: true
         env:
-          GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN  }}
           MATRIX_DEVICE_MODEL: ${{ matrix.device_model }}
           CURRENT_RELEASE: ${{ env.RELEASE_TAG }}
         run: |
