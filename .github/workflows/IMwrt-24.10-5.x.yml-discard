@@ -286,7 +286,7 @@ jobs:
       - name: SSH链接管理
         uses: P3TERX/ssh2actions@v1.0.0
         if: (github.event.inputs.ssh == 'true')
-        
+
       - name: 提取固件版本号
         id: version
         if: steps.compile.outputs.status == 'success'
@@ -373,6 +373,10 @@ jobs:
             echo "高功率模式: $([ "$ENABLE_5G_25DB" = 'true' ] && echo '已启用' || echo '未启用')"
             echo -e "\n### 更新内容"
             git log --pretty=format:"- %s" -n 5
+            echo -e "\n### 验证固件"
+            echo -e "\n- 未验证"
+            验证固件
+未验证
           } > release.txt
 
           echo "status=success" >> $GITHUB_OUTPUT
