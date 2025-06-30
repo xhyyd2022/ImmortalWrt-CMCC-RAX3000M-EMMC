@@ -3,10 +3,8 @@
 这是一个用于自动编译 [ImmortalWrt 24.10](https://github.com/padavanonly/immortalwrt-mt798x-24.10) 固件的 GitHub Actions 工作流，专为 CMCC RAX3000M EMMC设计。支持每周检查源码更新、自动编译固件，并将 `sysupgrade.bin` 文件上传到 GitHub Release。
 
 ## 功能
-- **支持的设备**：
-  - cmcc_rax3000m-emmc
-  - cmcc_rax3000m-emmc-usboffload
-- **自动编译**：每周一（北京时间 12:00）检查源仓库更新，若有新提交，自动为 CMCC RAX3000m emmc 机型编译固件。
+- **支持的设备**：`cmcc_rax3000m-emmc`
+- **自动编译**：每周一（北京时间 12:00）检查源仓库更新，若有新提交，自动为 CMCC RAX3000m EMMC 机型编译固件。
 - **5G 25dB 增强**：支持启用 5G 高功率模式（默认启用，定时编译时固定启用，手动编译可选）。
 - **固件上传**：仅上传 `sysupgrade.bin` 文件到 GitHub Release，无 ZIP 压缩。
 - **清理机制**：保留最近 30 个 GitHub Release 和 30 次工作流运行，自动删除旧记录以节省空间。
