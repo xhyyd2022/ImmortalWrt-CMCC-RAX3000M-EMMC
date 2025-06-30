@@ -288,11 +288,18 @@ jobs:
           set -e
           cd openwrt/bin/targets/*/*
           rm -rf packages
+          ls -la
+          if [ "$ENABLE_5G_25DB" = "true" ]; then
+            DB25="on"
+          else
+            DB25="off"
+          fi
+          DEVICE_MODEL="${{ matrix.device_model }}"
           for file in *sysupgrade* *factory*; do
-            if [ -f "$file" ] && ! echo "$file" | grep -q "-bl2"; then
+            if [ -f "$file" ] && ! echo "$file" | grep -q -- "-bl2"; then
               TYPE=$(echo "$file" | grep -o "sysupgrade\|factory")
               EXT="${file##*.}"
-              NEW_NAME="${{ matrix.device_model }}_25dB-${{ env.ENABLE_5G_25DB == 'true' && 'on' || 'off' }}_${{ env.FIRMWARE_VERSION }}${{ env.FILE_DATE }}_${TYPE}.${EXT}"
+              NEW_NAME="${DEVICE_MODEL}_25dB-${DB25}_${FIRMWARE_VERSION}${FILE_DATE}_${TYPE}.${EXT}"
               mv "$file" "$NEW_NAME"
             fi
           done
@@ -340,7 +347,7 @@ jobs:
         run: |
           echo "FIRMWARE路径: ${{ env.FIRMWARE }}"
           echo "TAG状态: ${{ steps.tag.outputs.status }}"
-          ls -la ${{ env.FIRMWARE }}/*sysupgrade.bin
+          ls -la ${{ env.FIRMWARE }} || echo "输出目录不存在: ${{ env.FIRMWARE }}"
 
       - name: 删除同名 tag（如已存在）
         run: |
