@@ -41,6 +41,6 @@
 - **5G 25dB 增强**：高功率模式可能受当地法规限制，请确认合法性后再使用。
 
 ## 源码
-- 本工作流基于 [padavanonly/immortalwrt-mt798x-24.10](https://github.com/padavanonly/immortalwrt-mt798x-24.10)。
-- 分支：`openwrt-24.10-6.6`。
-- 工作流：[ImmortalWrt-Builder-24.10](https://github.com/hhCodingCat/ImWRT-798X)
+- 源码仓库：[padavanonly/immortalwrt-mt798x-24.10](https://github.com/padavanonly/immortalwrt-mt798x-24.10)。
+- 仓库分支：`openwrt-24.10-6.6`。
+- 原工作流：[ImmortalWrt-Builder-24.10](https://github.com/hhCodingCat/ImWRT-798X)
