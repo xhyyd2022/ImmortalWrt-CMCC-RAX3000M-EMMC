@@ -325,7 +325,7 @@ jobs:
           fi
 
           # 生成标签
-          TAG="ImmortalWrt-24.10-${{ matrix.device_model }}-${{ env.FIRMWARE_VERSION }}"
+          TAG="ImmortalWrt-24.10-6.6-${{ matrix.device_model }}-${{ env.FIRMWARE_VERSION }}"
           echo "RELEASE_TAG=$TAG-$(date +%Y%m%d%H%M%S)" | tee -a $GITHUB_OUTPUT >> $GITHUB_ENV
 
           # 生成发布说明
@@ -381,32 +381,6 @@ jobs:
           files: |
             ${{ env.FIRMWARE }}/*sysupgrade*.*
             ${{ env.FIRMWARE }}/*factory*.*
-          overwrite: true
-      # - name: 创建发布
-      #   run: |
-      #     gh release create "$RELEASE_TAG" --title "$RELEASE_TAG" --notes-file "${{ github.workspace }}/release.txt" --repo ${{ github.repository }} --target ${{ github.sha }}
-      #   env:
-      #     GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN  }}
-
-      # - name: 查找固件文件
-      #   id: find_firmware
-      #   run: |
-      #     FILE=$(ls ${{ env.FIRMWARE }}/*sysupgrade.bin 2>/dev/null | head -n 1)
-      #     if [ -z "$FILE" ]; then
-      #       echo "未找到 sysupgrade.bin，跳过上传"
-      #       echo "found=false" >> $GITHUB_OUTPUT
-      #       exit 0
-      #     fi
-      #     echo "ASSET_PATH=$FILE" >> $GITHUB_ENV
-      #     echo "ASSET_NAME=$(basename $FILE)" >> $GITHUB_ENV
-      #     echo "found=true" >> $GITHUB_OUTPUT
-
-      # - name: 上传固件到 Release
-      #   if: steps.find_firmware.outputs.found == 'true'
-      #   env:
-      #     GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN  }}
-      #   run: |
-      #     gh release upload "$RELEASE_TAG" "$ASSET_PATH" --repo ${{ github.repository }} --clobber
 
       - name: 验证Release创建
         run: |
