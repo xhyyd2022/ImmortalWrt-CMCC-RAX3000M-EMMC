@@ -35,12 +35,7 @@
 - 备份设备原有固件。
 - 使用 Web 界面或 SSH 刷入 `sysupgrade.bin` 文件。
 
-## 注意事项
-- **风险提示**：刷写固件可能导致设备变砖，请谨慎操作，确保固件与设备型号完全匹配。
-- **编译时间**：单设备编译可能需要 1-2 小时，视 GitHub Actions 资源而定。
-- **5G 25dB 增强**：高功率模式可能受当地法规限制，请确认合法性后再使用。
-
 ## 源码
-- 源码仓库：[padavanonly/immortalwrt-mt798x-24.10](https://github.com/padavanonly/immortalwrt-mt798x-24.10)
+- 源码仓库：[immortalwrt-mt798x-24.10](https://github.com/padavanonly/immortalwrt-mt798x-24.10)
 - 仓库分支：`openwrt-24.10-6.6`
-- 原工作流：[ImmortalWrt-Builder-24.10](https://github.com/hhCodingCat/ImWRT-798X)
+- 原工作流：[ImWRT-798X](https://github.com/hhCodingCat/ImWRT-798X)
