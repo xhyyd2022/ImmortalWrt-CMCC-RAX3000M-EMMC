@@ -28,12 +28,12 @@
     - 在 fork 仓库下新建一个 Personal Access Token (classic)（需要 repo 权限），在仓库 Secrets 里添加，比如叫 GH_TOKEN，然后 workflow 里用它替换 GITHUB_TOKEN
 
 ### 4. 下载固件
-- **GitHub Release**：在仓库的 **Releases** 页面查找 `v24.10-<device_model>` 标签，下载 `sysupgrade.bin`。
+- **GitHub Release**：在仓库的 **Releases** 页面查下载 `sysupgrade.bin`固件。
 
 ### 5. 刷写固件
 - 确认设备型号与固件匹配。
 - 备份设备原有固件。
-- 使用 Web 界面或 SSH 刷入 `sysupgrade.bin` 文件。
+- 使用 `系统-备份与升级-刷写新的固件` 或  `U-Boot`刷入 `sysupgrade.bin` 文件。
 
 ## 源码
 - 源码仓库：[immortalwrt-mt798x-24.10](https://github.com/padavanonly/immortalwrt-mt798x-24.10)
