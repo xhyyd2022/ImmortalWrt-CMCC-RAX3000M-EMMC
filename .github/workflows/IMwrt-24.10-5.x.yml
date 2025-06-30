@@ -21,6 +21,12 @@ on:
         type: boolean
         required: true
         default: true
+      ssh:
+        description: 'SSH connection to Actions'
+        type: boolean
+        required: true
+        default: false
+
   schedule:
     - cron: '0 7 * * 5'  # 每周五 UTC 时间 07:00 运行（北京时间 15:00）
 
@@ -277,6 +283,10 @@ jobs:
             openwrt/logs/*.log
             openwrt/*.log
 
+      - name: SSH链接管理
+        uses: P3TERX/ssh2actions@v1.0.0
+        if: (github.event.inputs.ssh == 'true')
+        
       - name: 提取固件版本号
         id: version
         if: steps.compile.outputs.status == 'success'
