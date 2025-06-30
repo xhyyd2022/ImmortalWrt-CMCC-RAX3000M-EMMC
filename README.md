@@ -25,7 +25,7 @@
 
 ### 3. 编译失败
  - 在创建发布时失败：HTTP 403: Resource not accessible by integration (https://api.github.com/repos/PlanetEditorX/ImWRT-798X/releases)
-  - 在 fork 仓库下新建一个 Personal Access Token (classic)（需要 repo 权限），在仓库 Secrets 里添加，比如叫 GH_TOKEN，然后 workflow 里用它替换 GITHUB_TOKEN
+    - 在 fork 仓库下新建一个 Personal Access Token (classic)（需要 repo 权限），在仓库 Secrets 里添加，比如叫 GH_TOKEN，然后 workflow 里用它替换 GITHUB_TOKEN
 
 ### 4. 下载固件
 - **GitHub Release**：在仓库的 **Releases** 页面查找 `v24.10-<device_model>` 标签，下载 `sysupgrade.bin`。
@@ -41,6 +41,6 @@
 - **5G 25dB 增强**：高功率模式可能受当地法规限制，请确认合法性后再使用。
 
 ## 源码
-- 源码仓库：[padavanonly/immortalwrt-mt798x-24.10](https://github.com/padavanonly/immortalwrt-mt798x-24.10)。
-- 仓库分支：`openwrt-24.10-6.6`。
+- 源码仓库：[padavanonly/immortalwrt-mt798x-24.10](https://github.com/padavanonly/immortalwrt-mt798x-24.10)
+- 仓库分支：`openwrt-24.10-6.6`
 - 原工作流：[ImmortalWrt-Builder-24.10](https://github.com/hhCodingCat/ImWRT-798X)
