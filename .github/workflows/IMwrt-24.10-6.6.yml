@@ -43,7 +43,7 @@ on:
         description: '集成iStore商店'
         type: boolean
         required: true
-        default: true
+        default: false
       ssh:
         description: 'SSH connection to Actions'
         type: boolean
