@@ -39,6 +39,11 @@ on:
         type: choice
         options:
           - '24.10-6.6.config'
+      istore:
+        description: '集成iStore商店'
+        type: boolean
+        required: true
+        default: true
       ssh:
         description: 'SSH connection to Actions'
         type: boolean
@@ -196,6 +201,15 @@ jobs:
           cd openwrt
           ./scripts/feeds update -a || { echo "更新 Feeds 失败"; exit 1; }
           ./scripts/feeds install -a || { echo "安装 Feeds 失败"; exit 1; }
+
+      - name: 安装iStore商店
+        if: (github.event.inputs.istore == 'true')
+        run: |
+          cd openwrt
+          echo >> feeds.conf.default
+          echo 'src-git istore https://github.com/linkease/istore;main' >> feeds.conf.default
+          ./scripts/feeds update istore
+          ./scripts/feeds install -d y -p istore luci-app-store
 
       - name: 加载配置
         run: |
