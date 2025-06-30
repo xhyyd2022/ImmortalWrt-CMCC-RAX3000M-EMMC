@@ -187,7 +187,12 @@ jobs:
           fi
           ln -sf /workdir/openwrt $GITHUB_WORKSPACE/openwrt
           # 获取最新 commit hash
-          LATEST_HASH=$(curl -s "https://api.github.com/repos/${REPO_URL#https://github.com/}/git/refs/heads/$REPO_BRANCH" | jq -r '.object.sha')
+          REPO_PATH=$(echo "$REPO_URL" | sed -E 's#https://github.com/##;s#/$##')
+          LATEST_HASH=$(curl -s "https://api.github.com/repos/${REPO_PATH}/git/refs/heads/$REPO_BRANCH" | jq -r '.object.sha')
+          if [ -z "$LATEST_HASH" ] || [ "$LATEST_HASH" = "null" ]; then
+            echo "获取 hash 失败，API 返回内容异常"
+            exit 1
+          fi
           echo "源仓库最新提交 hash: $LATEST_HASH"
           echo "LATEST_HASH=$LATEST_HASH" >> $GITHUB_ENV
 
