@@ -8,7 +8,7 @@
 - **5G 25dB 增强**：支持启用 5G 高功率模式（默认启用，定时编译时固定启用，手动编译可选）。
 - **固件上传**：上传 `sysupgrade.bin` 文件到 GitHub Release。
 - **清理机制**：保留最近 30 个 GitHub Release 和 30 次工作流运行，自动删除旧记录以节省空间。
-- **服务插件**：微信推送、<img src="https://img.picui.cn/free/2025/07/01/686352e0d0e47.png" alt="猫咪.png" title="猫咪.png" width="28" height="14" />。
+- **服务插件**：微信推送、OpenClash。
 
 ## 使用方法
 
