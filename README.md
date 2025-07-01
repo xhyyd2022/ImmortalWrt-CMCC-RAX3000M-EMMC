@@ -26,7 +26,7 @@
 ### 3. 编译失败
  - 在创建发布时失败：HTTP 403: Resource not accessible by integration (https://api.github.com/repos/PlanetEditorX/ImWRT-798X/releases)
     - 方式一：在 fork 仓库下新建一个 Personal Access Token (classic)（需要 repo 权限），在仓库 Secrets 里添加，比如叫 GH_TOKEN，然后 workflow 里用它替换 GITHUB_TOKEN
-    - 方式二：创建一个新仓库，将该仓库内容（除.git目录）移至新仓库
+    - 方式二：创建一个新仓库，将该仓库内容（除`.git`目录）移至新仓库
 
 ### 4. 下载固件
 - **GitHub Release**：在仓库的 **Releases** 页面查下载 `sysupgrade.bin`固件。
