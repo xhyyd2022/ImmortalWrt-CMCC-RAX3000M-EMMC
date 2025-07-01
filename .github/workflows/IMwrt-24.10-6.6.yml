@@ -88,6 +88,8 @@ jobs:
         id: check
         run: |
           REPO_PATH=$(echo "$REPO_URL" | sed -E 's#https://github.com/##;s#/$##')
+          echo $REPO_PATH
+          echo $REPO_BRANCH
           LATEST_URL=$(curl -s -f -H "Accept: application/vnd.github.v3+json" \
           "https://api.github.com/repos/${REPO_PATH}/commits/$REPO_BRANCH" | jq -r '.url' || echo "")
           echo "跳转URL：" $LATEST_URL
