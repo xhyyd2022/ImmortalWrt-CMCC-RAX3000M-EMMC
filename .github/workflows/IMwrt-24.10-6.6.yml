@@ -399,7 +399,7 @@ jobs:
             echo "源仓库分支: $REPO_BRANCH"
             echo "配置文件: $CONFIG_FILE"
             if [ -n "$LATEST_COMMIT_MESSAGE" ]; then
-                echo -e "\n### 更新内容\n- $LATEST_COMMIT_MESSAGE"
+              echo -e "\n### 更新内容\n- $LATEST_COMMIT_MESSAGE"
             fi
             echo -e "\n### 验证固件"
             echo -e "\n- 未验证"
