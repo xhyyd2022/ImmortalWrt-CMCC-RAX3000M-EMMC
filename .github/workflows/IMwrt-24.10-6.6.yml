@@ -102,11 +102,13 @@ jobs:
           LATEST_URL=$(curl -s -f -H "Accept: application/vnd.github.v3+json" \
           "https://api.github.com/repos/${REPO_PATH}/commits/$REPO_BRANCH" | jq -r '.url' || echo "")
           echo "跳转URL：" $LATEST_URL
-          LATEST_SHA=$(curl -s -f -H "Accept: application/vnd.github.v3+json" \
-          $LATEST_URL | jq -r '.sha' || echo "")
+          response=$(curl -s -f -H "Accept: application/vnd.github.v3+json" "$LATEST_URL")
+          LATEST_SHA=$(echo "$response" | jq -r '.sha' || echo "")
+          LATEST_COMMIT_MESSAGE=$(echo "$response" | jq -r '.commit.message' || echo "")
           if [ -z "$LATEST_SHA" ] || [ "$LATEST_SHA" = "null" ]; then
             echo "无法获取最新 SHA，跳过编译"
             echo "should_build=false" >> $GITHUB_OUTPUT
+            echo "LATEST_COMMIT_MESSAGE=" >> $GITHUB_OUTPUT
           fi
           echo "源仓库最新提交 sha: $LATEST_SHA"
           echo "LATEST_SHA=$LATEST_SHA" >> $GITHUB_ENV
@@ -117,6 +119,8 @@ jobs:
             echo "检测到源仓库更新：$LATEST_SHA"
             echo "should_build=true" >> $GITHUB_OUTPUT
             echo "$LATEST_SHA" > "$LAST_CHECKED_FILE"
+            echo "LATEST_COMMIT_MESSAGE=$LATEST_COMMIT_MESSAGE" >> $GITHUB_OUTPUT
+            echo "最新提交信息: $LATEST_COMMIT_MESSAGE" # For logging
           else
             echo "源仓库无更新，跳过编译"
             echo "should_build=false" >> $GITHUB_OUTPUT
@@ -148,6 +152,31 @@ jobs:
 
       - name: 检出代码
         uses: actions/checkout@v4
+
+      - name: 设置最新提交信息
+        id: set_latest_commit_message
+        run: |
+          COMMIT_MSG=""
+          # 如果是自动执行，代表远程源仓库有更新,更新内容为最新提交信息。否则为本仓库的最新提交信息
+          if [ "${{ needs.check-source-updates.outputs.should_build }}" = "true" ]; then
+            COMMIT_MSG="${{ needs.check-source-updates.outputs.LATEST_COMMIT_MESSAGE }}"
+            echo "检测到源仓库更新，使用远程仓库最新提交信息。"
+          elif [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            COMMIT_MSG=$(git log --pretty=format:"- %s" -n 5)
+            echo "手动触发编译，使用本仓库最新提交信息。"
+          else
+            # Fallback for other scenarios, e.g., no update, or other triggers
+            COMMIT_MSG="未检测到特定更新，或非自动/手动触发。"
+            echo "未能确定更新内容，使用默认信息。"
+          fi
+
+          if [ -z "$COMMIT_MSG" ] && [ "${{ github.event_name }}" != "workflow_dispatch" ] && [ "${{ needs.check-source-updates.outputs.should_build }}" = "true" ]; then
+              COMMIT_MSG=$(git log --pretty=format:"- %s" -n 5)
+          fi
+
+          # Set the step output for LATEST_COMMIT_MESSAGE
+          echo "LATEST_COMMIT_MESSAGE=$COMMIT_MSG" >> $GITHUB_OUTPUT
+          echo "最终使用的提交信息: $COMMIT_MSG"
 
       - name: 检查磁盘空间
         run: |
@@ -370,7 +399,7 @@ jobs:
             echo "源仓库分支: $REPO_BRANCH"
             echo "配置文件: $CONFIG_FILE"
             echo -e "\n### 更新内容"
-            git log --pretty=format:"- %s" -n 5
+            echo "$LATEST_COMMIT_MESSAGE"
             echo -e "\n### 验证固件"
             echo -e "\n- 未验证"
           } > release.txt
