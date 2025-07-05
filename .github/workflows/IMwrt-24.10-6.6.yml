@@ -388,6 +388,9 @@ jobs:
           TAG="ImmortalWrt-24.10-6.6-${{ matrix.device_model }}-${{ env.FIRMWARE_VERSION }}"
           echo "RELEASE_TAG=$TAG-$(date +%Y%m%d%H%M%S)" | tee -a $GITHUB_OUTPUT >> $GITHUB_ENV
 
+          # 获取更新信息
+          LATEST_COMMIT_MESSAGE="${{ steps.set_latest_commit_message.outputs.LATEST_COMMIT_MESSAGE }}"
+
           # 生成发布说明
           {
             echo "固件版本: ImmortalWrt ${{ env.FIRMWARE_VERSION }}"
