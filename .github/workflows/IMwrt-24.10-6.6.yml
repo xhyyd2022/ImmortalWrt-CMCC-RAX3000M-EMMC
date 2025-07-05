@@ -160,16 +160,16 @@ jobs:
         id: set_latest_commit_message
         run: |
           COMMIT_MSG=""
-          # 如果是自动执行（远程源仓库有更新）
-          if [ "${{ needs.check-source-updates.outputs.should_build }}" = "true" ]; then
+          # 如果是推送触发
+          if [ "${{ github.event_name }}" = "push" ]; then
+            echo "推送触发编译，使用本仓库最新提交信息。"
+            COMMIT_MSG=$(git log --pretty=format:"- %s" -n 5)
+          elif [ "${{ github.event_name }}" = "schedule" ] && [ "${{ needs.check-source-updates.outputs.should_build }}" = "true" ]; then
+            # 如果是定时触发 (schedule)（远程源仓库有更新）
             COMMIT_MSG="${{ needs.check-source-updates.outputs.latest_commit_message }}"
             echo "检测到源仓库更新，使用远程仓库最新提交信息。"
-          # 如果是手动触发 (workflow_dispatch) 或定时触发 (schedule)
-          elif [ "${{ github.event_name }}" = "workflow_dispatch" ] || [ "${{ github.event_name }}" = "schedule" ]; then
-            COMMIT_MSG=$(git log --pretty=format:"- %s" -n 5)
-            echo "手动/定时触发编译，使用本仓库最新提交信息。"
           else
-            # 其他触发方式，或者没有明确的更新信息
+            # 如果是手动触发 (workflow_dispatch)，或者没有明确的更新信息
             COMMIT_MSG=""
             echo "未能确定更新内容，更新内容为空。"
           fi
@@ -398,9 +398,8 @@ jobs:
             echo "源仓库 URL: $REPO_URL"
             echo "源仓库分支: $REPO_BRANCH"
             echo "配置文件: $CONFIG_FILE"
-            if [ -z "${{ env.LATEST_COMMIT_MESSAGE }}" ]; then
-              echo -e "\n### 更新内容"
-              echo "${{ env.LATEST_COMMIT_MESSAGE }}"
+            if [ -n "$LATEST_COMMIT_MESSAGE" ]; then
+                echo -e "\n### 更新内容\n$LATEST_COMMIT_MESSAGE"
             fi
             echo -e "\n### 验证固件"
             echo -e "\n- 未验证"
