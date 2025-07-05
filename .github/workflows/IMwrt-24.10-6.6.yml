@@ -175,7 +175,7 @@ jobs:
           fi
 
           # 设置步骤输出
-          echo "LATEST_COMMIT_MESSAGE=$COMMIT_MSG" >> $GITHUB_OUTPUT
+          echo "LATEST_COMMIT_MESSAGE=$COMMIT_MSG" >> $GITHUB_ENV
           echo "最终使用的提交信息: $COMMIT_MSG"
 
       - name: 检查磁盘空间
@@ -387,9 +387,6 @@ jobs:
           # 生成标签
           TAG="ImmortalWrt-24.10-6.6-${{ matrix.device_model }}-${{ env.FIRMWARE_VERSION }}"
           echo "RELEASE_TAG=$TAG-$(date +%Y%m%d%H%M%S)" | tee -a $GITHUB_OUTPUT >> $GITHUB_ENV
-
-          # 获取更新信息
-          LATEST_COMMIT_MESSAGE="${{ steps.set_latest_commit_message.outputs.LATEST_COMMIT_MESSAGE }}"
 
           # 生成发布说明
           {
