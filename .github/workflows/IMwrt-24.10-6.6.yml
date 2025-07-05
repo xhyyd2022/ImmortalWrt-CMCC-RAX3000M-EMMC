@@ -168,9 +168,15 @@ jobs:
             echo "推送触发编译，使用本仓库最新提交信息。"
           else
             COMMIT_MSG=""
+            echo "非推送或自动触发，使用空提交信息。"
           fi
           echo "LATEST_COMMIT_MESSAGE=$COMMIT_MSG" >> $GITHUB_OUTPUT
-          echo "最终使用的更新信息: $COMMIT_MSG || echo '无更新信息'"
+          if [ -n "$COMMIT_MSG" ]; then
+            echo -e "## 最终更新内容\n$COMMIT_MSG" >> $GITHUB_STEP_SUMMARY
+            echo "最终使用的更新信息已写入工作流摘要"
+          else
+            echo "无有效更新信息可显示"
+          fi
 
       - name: 检查磁盘空间
         run: |
@@ -392,9 +398,9 @@ jobs:
             echo "源仓库 URL: $REPO_URL"
             echo "源仓库分支: $REPO_BRANCH"
             echo "配置文件: $CONFIG_FILE"
-            if [ -z "$LATEST_COMMIT_MESSAGE" ]; then
+            if [ -z "${{ env.LATEST_COMMIT_MESSAGE }}" ]; then
               echo -e "\n### 更新内容"
-              echo "$LATEST_COMMIT_MESSAGE"
+              echo "${{ env.LATEST_COMMIT_MESSAGE }}"
             fi
             echo -e "\n### 验证固件"
             echo -e "\n- 未验证"
