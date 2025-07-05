@@ -159,18 +159,30 @@ jobs:
         id: set_latest_commit_message
         run: |
           COMMIT_MSG=""
-          # 如果是自动执行，代表远程源仓库有更新,更新内容为最新提交信息。否则为本仓库的最新提交信息
+          # 如果是自动执行（远程源仓库有更新）
           if [ "${{ needs.check-source-updates.outputs.should_build }}" = "true" ]; then
             COMMIT_MSG="${{ needs.check-source-updates.outputs.LATEST_COMMIT_MESSAGE }}"
             echo "检测到源仓库更新，使用远程仓库最新提交信息。"
-          elif [ "${{ github.event_name }}" = "push" ]; then
+          # 如果是手动触发 (workflow_dispatch) 或定时触发 (schedule)
+          elif [ "${{ github.event_name }}" = "workflow_dispatch" ] || [ "${{ github.event_name }}" = "schedule" ]; then
             COMMIT_MSG=$(git log --pretty=format:"- %s" -n 5)
-            echo "推送触发编译，使用本仓库最新提交信息。"
+            echo "手动/定时触发编译，使用本仓库最新提交信息。"
           else
-            COMMIT_MSG=""
-            echo "非推送或自动触发，使用空提交信息。"
+            # 其他触发方式，或者没有明确的更新信息
+            COMMIT_MSG="无特定更新内容（非自动/手动/定时触发）。"
+            echo "未能确定更新内容，使用默认信息。"
           fi
+
+          if [ -z "$COMMIT_MSG" ] && [ "${{ needs.check-source-updates.outputs.should_build }}" = "true" ]; then
+              echo "警告：远程 LATEST_COMMIT_MESSAGE 为空，回退到本仓库 git log。"
+              COMMIT_MSG=$(git log --pretty=format:"- %s" -n 5)
+          fi
+
+          # 设置步骤输出
           echo "LATEST_COMMIT_MESSAGE=$COMMIT_MSG" >> $GITHUB_OUTPUT
+          echo "最终使用的提交信息: $COMMIT_MSG"
+
+          # 写入工作流摘要
           if [ -n "$COMMIT_MSG" ]; then
             echo -e "## 最终更新内容\n$COMMIT_MSG" >> $GITHUB_STEP_SUMMARY
             echo "最终使用的更新信息已写入工作流摘要"
