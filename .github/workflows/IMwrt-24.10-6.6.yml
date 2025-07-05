@@ -3,6 +3,8 @@ name: IMwrt-24.10-6.6
 on:
   repository_dispatch:
     types: [build_firmware]
+  push:
+    branches: [ main ]
   workflow_dispatch:
     inputs:
       device_model:
@@ -161,22 +163,14 @@ jobs:
           if [ "${{ needs.check-source-updates.outputs.should_build }}" = "true" ]; then
             COMMIT_MSG="${{ needs.check-source-updates.outputs.LATEST_COMMIT_MESSAGE }}"
             echo "检测到源仓库更新，使用远程仓库最新提交信息。"
-          elif [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+          elif [ "${{ github.event_name }}" = "push" ]; then
             COMMIT_MSG=$(git log --pretty=format:"- %s" -n 5)
-            echo "手动触发编译，使用本仓库最新提交信息。"
+            echo "推送触发编译，使用本仓库最新提交信息。"
           else
-            # Fallback for other scenarios, e.g., no update, or other triggers
-            COMMIT_MSG="未检测到特定更新，或非自动/手动触发。"
-            echo "未能确定更新内容，使用默认信息。"
+            COMMIT_MSG=""
           fi
-
-          if [ -z "$COMMIT_MSG" ] && [ "${{ github.event_name }}" != "workflow_dispatch" ] && [ "${{ needs.check-source-updates.outputs.should_build }}" = "true" ]; then
-              COMMIT_MSG=$(git log --pretty=format:"- %s" -n 5)
-          fi
-
-          # Set the step output for LATEST_COMMIT_MESSAGE
           echo "LATEST_COMMIT_MESSAGE=$COMMIT_MSG" >> $GITHUB_OUTPUT
-          echo "最终使用的提交信息: $COMMIT_MSG"
+          echo "最终使用的更新信息: $COMMIT_MSG || echo '无更新信息'"
 
       - name: 检查磁盘空间
         run: |
@@ -398,8 +392,10 @@ jobs:
             echo "源仓库 URL: $REPO_URL"
             echo "源仓库分支: $REPO_BRANCH"
             echo "配置文件: $CONFIG_FILE"
-            echo -e "\n### 更新内容"
-            echo "$LATEST_COMMIT_MESSAGE"
+            if [ -z "$LATEST_COMMIT_MESSAGE" ]; then
+              echo -e "\n### 更新内容"
+              echo "$LATEST_COMMIT_MESSAGE"
+            fi
             echo -e "\n### 验证固件"
             echo -e "\n- 未验证"
           } > release.txt
