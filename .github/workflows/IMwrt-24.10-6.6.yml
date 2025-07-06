@@ -521,7 +521,7 @@ jobs:
           tag_name: ${{ steps.tag.outputs.RELEASE_TAG }}
           body_path: release
           files: |
-            # ${{ env.FIRMWARE }}/*sysupgrade*.*
+            ${{ env.FIRMWARE }}/*sysupgrade*.*
             # ${{ env.FIRMWARE }}/*factory*.*
 
       - name: 验证Release创建
