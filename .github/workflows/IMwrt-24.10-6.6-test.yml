@@ -192,11 +192,11 @@ jobs:
             git log $LAST_BUILD_SHA..HEAD --pretty=format:"%s" | awk '!a[$0]++' | sed 's/^/- /' > "$TEMP_FILE"
             echo "BUILD_COMMIT_MSGS_FILE=$TEMP_FILE" >> $GITHUB_ENV
           fi
-          if [ -z "$BUILD_COMMIT_MSGS_FILE" ]; then
+          if [ -z "$TEMP_FILE" ]; then
             echo "本仓库无更新"
           else
             echo "本仓库更新信息:"
-            cat $BUILD_COMMIT_MSGS_FILE
+            cat $TEMP_FILE
           fi
 
       - name: 检查磁盘空间
