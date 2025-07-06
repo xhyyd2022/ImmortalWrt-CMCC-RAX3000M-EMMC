@@ -83,9 +83,7 @@ jobs:
     steps:
       - name: 检出本仓库代码
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-          
+
       - name: 安装 GitHub CLI
         run: |
           sudo apt-get update
@@ -160,6 +158,11 @@ jobs:
 
       - name: 检出代码
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # 获取完整的提交历史
+
+      - name: 输出最近的 5 条提交日志
+        run: git log -n 5
 
       - name: 设置 REPO_PATH
         run: echo "REPO_PATH=$(echo $REPO_URL | sed -E 's#https://github.com/##;s#/$##')" >> $GITHUB_ENV
