@@ -3,8 +3,8 @@ name: IMwrt-24.10-6.6
 on:
   repository_dispatch:
     types: [build_firmware]
-  push:
-    branches: [ main ]
+  # push:
+  #   branches: [ main ]
   workflow_dispatch:
     inputs:
       device_model:
