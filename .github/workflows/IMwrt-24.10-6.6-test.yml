@@ -423,6 +423,8 @@ jobs:
         id: tag
         # if: env.UPLOAD_RELEASE == 'true' && steps.compile.outputs.status == 'success'
         run: |
+          # 测试
+          echo "FIRMWARE_VERSION=1234567890" >> $GITHUB_ENV
           set -e
           # 验证必要变量
           if [ -z "${{ matrix.device_model }}" ] || [ -z "${{ env.FIRMWARE_VERSION }}" ]; then
