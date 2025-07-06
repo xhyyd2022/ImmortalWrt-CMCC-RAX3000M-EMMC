@@ -149,6 +149,7 @@ jobs:
       - name: 调试信息
         run: |
           echo "触发方式: ${{ github.event_name }}"
+          echo "EVENT_TRIGGER_METHOD=${{ github.event_name }}" >> $GITHUB_ENV
           echo "设备型号: ${{ matrix.device_model }}"
           echo "5G 25dB: ${{ env.ENABLE_5G_25DB }}"
           echo "上传 bin 目录: ${{ github.event.inputs.upload_bin_dir }}"
@@ -398,6 +399,7 @@ jobs:
             echo "源仓库 URL: $REPO_URL"
             echo "源仓库分支: $REPO_BRANCH"
             echo "配置文件: $CONFIG_FILE"
+            echo "触发方式: $EVENT_TRIGGER_METHOD"
             if [ -n "$LATEST_COMMIT_MESSAGE" ]; then
               echo -e "\n### 更新内容\n- $LATEST_COMMIT_MESSAGE"
             fi
