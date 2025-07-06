@@ -297,158 +297,156 @@ jobs:
           mv /workdir/last_checked_sha.txt ./last_checked_sha.txt
           cat last_checked_sha.txt
 
-      # - name: 加载 Feeds
-      #   timeout-minutes: 10
-      #   run: |
-      #     [ -e $FEEDS_CONF ] && mv $FEEDS_CONF openwrt/feeds.conf.default
-      #     chmod +x $DIY_P1_SH
-      #     cd openwrt
-      #     $GITHUB_WORKSPACE/$DIY_P1_SH
+      - name: 加载 Feeds
+        timeout-minutes: 10
+        run: |
+          [ -e $FEEDS_CONF ] && mv $FEEDS_CONF openwrt/feeds.conf.default
+          chmod +x $DIY_P1_SH
+          cd openwrt
+          $GITHUB_WORKSPACE/$DIY_P1_SH
 
-      # - name: 更新 Feeds
-      #   timeout-minutes: 30
-      #   run: |
-      #     cd openwrt
-      #     ./scripts/feeds update -a || { echo "更新 Feeds 失败"; exit 1; }
-      #     ./scripts/feeds install -a || { echo "安装 Feeds 失败"; exit 1; }
+      - name: 更新 Feeds
+        timeout-minutes: 30
+        run: |
+          cd openwrt
+          ./scripts/feeds update -a || { echo "更新 Feeds 失败"; exit 1; }
+          ./scripts/feeds install -a || { echo "安装 Feeds 失败"; exit 1; }
 
-      # - name: 安装iStore商店
-      #   if: (github.event.inputs.istore == 'true')
-      #   run: |
-      #     cd openwrt
-      #     echo >> feeds.conf.default
-      #     echo 'src-git istore https://github.com/linkease/istore;main' >> feeds.conf.default
-      #     ./scripts/feeds update istore
-      #     ./scripts/feeds install -d y -p istore luci-app-store
+      - name: 安装iStore商店
+        if: (github.event.inputs.istore == 'true')
+        run: |
+          cd openwrt
+          echo >> feeds.conf.default
+          echo 'src-git istore https://github.com/linkease/istore;main' >> feeds.conf.default
+          ./scripts/feeds update istore
+          ./scripts/feeds install -d y -p istore luci-app-store
 
-      # - name: 加载配置
-      #   run: |
-      #     [ -e files ] && mv files openwrt/files
-      #     [ -e config/$CONFIG_FILE ] && mv config/$CONFIG_FILE openwrt/.config
-      #     echo "CONFIG_TARGET_mediatek_filogic_DEVICE_${{ matrix.device_model }}=y" >> openwrt/.config
-      #     chmod +x $DIY_P2_SH
-      #     cd openwrt
-      #     $GITHUB_WORKSPACE/$DIY_P2_SH
-      #     make defconfig
+      - name: 加载配置
+        run: |
+          [ -e files ] && mv files openwrt/files
+          [ -e config/$CONFIG_FILE ] && mv config/$CONFIG_FILE openwrt/.config
+          echo "CONFIG_TARGET_mediatek_filogic_DEVICE_${{ matrix.device_model }}=y" >> openwrt/.config
+          chmod +x $DIY_P2_SH
+          cd openwrt
+          $GITHUB_WORKSPACE/$DIY_P2_SH
+          make defconfig
 
-      # - name: 下载软件包
-      #   id: package
-      #   timeout-minutes: 30
-      #   run: |
-      #     cd openwrt
-      #     make download -j8 || { echo "下载软件包失败"; exit 1; }
-      #     find dl -size -1024c -exec rm -f {} \;
+      - name: 下载软件包
+        id: package
+        timeout-minutes: 30
+        run: |
+          cd openwrt
+          make download -j8 || { echo "下载软件包失败"; exit 1; }
+          find dl -size -1024c -exec rm -f {} \;
 
-      # - name: 修改 5G 25dB
-      #   if: env.ENABLE_5G_25DB == 'true'
-      #   working-directory: ./openwrt
-      #   run: |
-      #     EEPROM_FILE=$(find package -name MT7981_iPAiLNA_EEPROM.bin 2>/dev/null | head -n 1)
-      #     if [ -z "$EEPROM_FILE" ]; then
-      #       echo "错误：未找到 EEPROM 文件"
-      #       exit 1
-      #     fi
-      #     EXPECTED_CONTENT=$(printf '\x2B\x2B\x2B\x2B\x2B\x2B\x2B\x2B\x2B\x2B\x2B\x2B\x2B\x2B\x2B\x2B\x2B\x2B\x2B\x2B')
-      #     CURRENT_CONTENT=$(dd if="$EEPROM_FILE" bs=1 skip=$((0x445)) count=20 2>/dev/null || echo "")
-      #     if [ "$CURRENT_CONTENT" != "$EXPECTED_CONTENT" ]; then
-      #       printf '\x2B\x2B\x2B\x2B\x2B\x2B\x2B\x2B\x2B\x2B\x2B\x2B\x2B\x2B\x2B\x2B\x2B\x2B\x2B\x2B' | dd of="$EEPROM_FILE" bs=1 seek=$((0x445)) conv=notrunc
-      #       echo "EEPROM 文件已更新: $EEPROM_FILE"
-      #     else
-      #       echo "EEPROM 文件无需修改: $EEPROM_FILE"
-      #     fi
+      - name: 修改 5G 25dB
+        if: env.ENABLE_5G_25DB == 'true'
+        working-directory: ./openwrt
+        run: |
+          EEPROM_FILE=$(find package -name MT7981_iPAiLNA_EEPROM.bin 2>/dev/null | head -n 1)
+          if [ -z "$EEPROM_FILE" ]; then
+            echo "错误：未找到 EEPROM 文件"
+            exit 1
+          fi
+          EXPECTED_CONTENT=$(printf '\x2B\x2B\x2B\x2B\x2B\x2B\x2B\x2B\x2B\x2B\x2B\x2B\x2B\x2B\x2B\x2B\x2B\x2B\x2B\x2B')
+          CURRENT_CONTENT=$(dd if="$EEPROM_FILE" bs=1 skip=$((0x445)) count=20 2>/dev/null || echo "")
+          if [ "$CURRENT_CONTENT" != "$EXPECTED_CONTENT" ]; then
+            printf '\x2B\x2B\x2B\x2B\x2B\x2B\x2B\x2B\x2B\x2B\x2B\x2B\x2B\x2B\x2B\x2B\x2B\x2B\x2B\x2B' | dd of="$EEPROM_FILE" bs=1 seek=$((0x445)) conv=notrunc
+            echo "EEPROM 文件已更新: $EEPROM_FILE"
+          else
+            echo "EEPROM 文件无需修改: $EEPROM_FILE"
+          fi
 
-      # - name: SSH链接管理
-      #   uses: P3TERX/ssh2actions@v1.0.0
-      #   if: (github.event.inputs.ssh == 'true')
+      - name: SSH链接管理
+        uses: P3TERX/ssh2actions@v1.0.0
+        if: (github.event.inputs.ssh == 'true')
 
-      # - name: 上传 .config
-      #   uses: actions/upload-artifact@v4
-      #   if: (github.event.inputs.ssh == 'true')
-      #   with:
-      #     name: OpenWrt_config
-      #     path: openwrt/config
+      - name: 上传 .config
+        uses: actions/upload-artifact@v4
+        if: (github.event.inputs.ssh == 'true')
+        with:
+          name: OpenWrt_config
+          path: openwrt/config
 
-      # - name: 编译固件
-      #   id: compile
-      #   timeout-minutes: 180
-      #   run: |
-      #     set -e
-      #     cd openwrt
-      #     make -j$(nproc) || make -j4 || make -j1 V=s
-      #     echo "status=success" >> $GITHUB_OUTPUT
-      #     echo "DEVICE_NAME=_${{ matrix.device_model }}" >> $GITHUB_ENV
-      #     echo "FILE_DATE=_$(date +"%Y%m%d%H%M")" >> $GITHUB_ENV
+      - name: 编译固件
+        id: compile
+        timeout-minutes: 180
+        run: |
+          set -e
+          cd openwrt
+          make -j$(nproc) || make -j4 || make -j1 V=s
+          echo "status=success" >> $GITHUB_OUTPUT
+          echo "DEVICE_NAME=_${{ matrix.device_model }}" >> $GITHUB_ENV
+          echo "FILE_DATE=_$(date +"%Y%m%d%H%M")" >> $GITHUB_ENV
 
-      # - name: 上传编译日志
-      #   if: failure()
-      #   uses: actions/upload-artifact@v4
-      #   with:
-      #     name: compile-log-${{ matrix.device_model }}
-      #     path: |
-      #       openwrt/build_dir/**/*.log
-      #       openwrt/logs/*.log
-      #       openwrt/*.log
+      - name: 上传编译日志
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: compile-log-${{ matrix.device_model }}
+          path: |
+            openwrt/build_dir/**/*.log
+            openwrt/logs/*.log
+            openwrt/*.log
 
-      # - name: 提取固件版本号
-      #   id: version
-      #   if: steps.compile.outputs.status == 'success'
-      #   run: |
-      #     cd openwrt
-      #     VERSION=$(git rev-parse --short HEAD || echo "unknown")
-      #     SAFE_VERSION="r${VERSION}"
-      #     echo "提取的版本号: $SAFE_VERSION"
-      #     echo "FIRMWARE_VERSION=$SAFE_VERSION" >> $GITHUB_ENV
-      #     echo "status=success" >> $GITHUB_OUTPUT
+      - name: 提取固件版本号
+        id: version
+        if: steps.compile.outputs.status == 'success'
+        run: |
+          cd openwrt
+          VERSION=$(git rev-parse --short HEAD || echo "unknown")
+          SAFE_VERSION="r${VERSION}"
+          echo "提取的版本号: $SAFE_VERSION"
+          echo "FIRMWARE_VERSION=$SAFE_VERSION" >> $GITHUB_ENV
+          echo "status=success" >> $GITHUB_OUTPUT
 
-      # - name: 检查磁盘
-      #   if: always()
-      #   run: |
-      #     df -hT
+      - name: 检查磁盘
+        if: always()
+        run: |
+          df -hT
 
-      # - name: 整理固件并固定文件名
-      #   id: organize
-      #   if: env.UPLOAD_FIRMWARE == 'true' && steps.compile.outputs.status == 'success'
-      #   run: |
-      #     set -e
-      #     cd openwrt/bin/targets/*/*
-      #     rm -rf packages
-      #     ls -la
-      #     if [ "$ENABLE_5G_25DB" = "true" ]; then
-      #       DB25="on"
-      #     else
-      #       DB25="off"
-      #     fi
-      #     DEVICE_MODEL="${{ matrix.device_model }}"
-      #     for file in *sysupgrade* *factory*; do
-      #       if [ -f "$file" ] && ! echo "$file" | grep -q -- "-bl2"; then
-      #         TYPE=$(echo "$file" | grep -o "sysupgrade\|factory")
-      #         EXT="${file##*.}"
-      #         NEW_NAME="${DEVICE_MODEL}_25dB-${DB25}_${FIRMWARE_VERSION}${FILE_DATE}_${TYPE}.${EXT}"
-      #         mv "$file" "$NEW_NAME"
-      #       fi
-      #     done
-      #     echo "FIRMWARE=$PWD" >> $GITHUB_ENV
-      #     echo "status=success" >> $GITHUB_OUTPUT
+      - name: 整理固件并固定文件名
+        id: organize
+        if: env.UPLOAD_FIRMWARE == 'true' && steps.compile.outputs.status == 'success'
+        run: |
+          set -e
+          cd openwrt/bin/targets/*/*
+          rm -rf packages
+          ls -la
+          if [ "$ENABLE_5G_25DB" = "true" ]; then
+            DB25="on"
+          else
+            DB25="off"
+          fi
+          DEVICE_MODEL="${{ matrix.device_model }}"
+          for file in *sysupgrade* *factory*; do
+            if [ -f "$file" ] && ! echo "$file" | grep -q -- "-bl2"; then
+              TYPE=$(echo "$file" | grep -o "sysupgrade\|factory")
+              EXT="${file##*.}"
+              NEW_NAME="${DEVICE_MODEL}_25dB-${DB25}_${FIRMWARE_VERSION}${FILE_DATE}_${TYPE}.${EXT}"
+              mv "$file" "$NEW_NAME"
+            fi
+          done
+          echo "FIRMWARE=$PWD" >> $GITHUB_ENV
+          echo "status=success" >> $GITHUB_OUTPUT
 
-      # - name: 上传 bin
-      #   uses: actions/upload-artifact@v4
-      #   if: steps.compile.outputs.status == 'success' && github.event_name == 'workflow_dispatch' && github.event.inputs.upload_bin_dir == 'true'
-      #   with:
-      #     name: OpenWrt_bin${{ env.DEVICE_NAME }}${{ env.FILE_DATE }}
-      #     path: openwrt/bin
+      - name: 上传 bin
+        uses: actions/upload-artifact@v4
+        if: steps.compile.outputs.status == 'success' && github.event_name == 'workflow_dispatch' && github.event.inputs.upload_bin_dir == 'true'
+        with:
+          name: OpenWrt_bin${{ env.DEVICE_NAME }}${{ env.FILE_DATE }}
+          path: openwrt/bin
 
       - name: 生成标签和发布描述
         id: tag
-        # if: env.UPLOAD_RELEASE == 'true' && steps.compile.outputs.status == 'success'
+        if: env.UPLOAD_RELEASE == 'true' && steps.compile.outputs.status == 'success'
         run: |
-          # 测试
-          echo "FIRMWARE_VERSION=1234567890" >> $GITHUB_ENV
           set -e
-          # # 验证必要变量
-          # if [ -z "${{ matrix.device_model }}" ] || [ -z "${{ env.FIRMWARE_VERSION }}" ]; then
-          #   echo "Missing required variables"
-          #   exit 1
-          # fi
+          # 验证必要变量
+          if [ -z "${{ matrix.device_model }}" ] || [ -z "${{ env.FIRMWARE_VERSION }}" ]; then
+            echo "Missing required variables"
+            exit 1
+          fi
 
           # 生成标签
           TAG="ImmortalWrt-24.10-6.6-${{ matrix.device_model }}-${{ env.FIRMWARE_VERSION }}"
@@ -516,7 +514,7 @@ jobs:
 
       - name: 发布固件
         uses: softprops/action-gh-release@v2
-        # if: steps.tag.outputs.status == 'success'
+        if: steps.tag.outputs.status == 'success'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
