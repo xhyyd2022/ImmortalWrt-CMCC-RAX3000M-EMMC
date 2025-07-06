@@ -447,7 +447,7 @@ jobs:
 
           # 生成发布说明
           {
-            echo "## 参数内容"
+            echo "## 默认配置"
             echo "固件版本: ImmortalWrt ${{ env.FIRMWARE_VERSION }}"
             echo "设备型号: ${{ matrix.device_model }}"
             echo "编译时间: $(date +'%Y-%m-%d %H:%M %Z')"
@@ -460,11 +460,15 @@ jobs:
             if [ -n "$BUILD_COMMIT_MSGS_FILE" ] || [ -n "$CHECKED_COMMIT_MSGS_FILE" ]; then
               echo -e "\n## 更新内容"
               if [ -n "$BUILD_COMMIT_MSGS_FILE" ]; then
-                echo "### 本仓库更新"
+                if [ -n "$CHECKED_COMMIT_MSGS_FILE" ]; then
+                  echo "### 本仓库更新"
+                fi
                 cat $BUILD_COMMIT_MSGS_FILE
               fi
               if [ -n "$CHECKED_COMMIT_MSGS_FILE" ]; then
-                echo "### 源仓库更新"
+                if [ -n "$BUILD_COMMIT_MSGS_FILE" ]; then
+                    echo "### 源仓库更新"
+                fi
                 cat $CHECKED_COMMIT_MSGS_FILE
               fi
             fi
