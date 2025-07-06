@@ -462,14 +462,14 @@ jobs:
 
               # 本仓库输出
               if [ -s "$BUILD_COMMIT_MSGS_FILE" ]; then
-                [ -s "$CHECKED_COMMIT_MSGS_FILE" ] && echo "### 本仓库更新" || echo "### 更新"
+                [ -s "$CHECKED_COMMIT_MSGS_FILE" ] && echo "### 本仓库更新"
                 cat "$BUILD_COMMIT_MSGS_FILE"
               fi
 
               # 源仓库输出
               if [ -s "$CHECKED_COMMIT_MSGS_FILE" ]; then
-                [ -s "$BUILD_COMMIT_MSGS_FILE" ] && echo "### 源仓库更新" || echo "### 更新"
-                cat "$CHECKED_COMMIT_MSGS_FILE"
+                  [ -s "$BUILD_COMMIT_MSGS_FILE" ] && echo "### 源仓库更新"
+                  cat "$CHECKED_COMMIT_MSGS_FILE"
               fi
             fi
             echo -e "\n## 验证固件"
