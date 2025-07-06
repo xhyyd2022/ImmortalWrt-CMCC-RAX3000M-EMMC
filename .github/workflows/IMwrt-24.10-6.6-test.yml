@@ -119,14 +119,14 @@ jobs:
           echo "LATEST_SHA=$LATEST_SHA" >> $GITHUB_ENV
 
           LAST_CHECKED_FILE="last_checked_sha.txt"
-          if [ -f "$LAST_CHECKED_FILE" ]; then
-              echo "缓存中找到上次检查的 SHA"
-              cat "$LAST_CHECKED_FILE"
+          LAST_CHECKED_SHA=$(cat "$LAST_CHECKED_FILE" 2>/dev/null || echo "")
+
+          if [ -n "$LAST_CHECKED_SHA" ]; then
+              echo "缓存中找到上次检查的 SHA： $LAST_CHECKED_SHA"
           else
               echo "缓存中未找到上次检查的 SHA"
           fi
 
-          LAST_CHECKED_SHA=$(cat "$LAST_CHECKED_FILE" 2>/dev/null || echo "")
           if [ "$LATEST_SHA" != "$LAST_CHECKED_SHA" ]; then
             echo "检测到源仓库更新：$LATEST_SHA"
             echo "should_build=true" >> $GITHUB_OUTPUT
