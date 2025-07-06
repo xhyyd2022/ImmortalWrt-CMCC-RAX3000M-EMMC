@@ -242,6 +242,11 @@ jobs:
         run: |
           sudo apt-get install -y gh
 
+      - name: 安装gh扩展
+        run: |
+          gh extension install actions/gh-actions-cache --force
+          gh --version  # 验证版本>=2.0.0
+
       - name: 克隆源码
         working-directory: /workdir
         run: |
@@ -526,6 +531,19 @@ jobs:
             exit 1
           fi
           echo "Release 创建成功: $RELEASE_TAG"
+
+      - name: 删除指定缓存
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh actions-cache delete \
+            --repo ${{ github.repository }} \
+            --key "${{ env.REPO_PATH }}-${{ env.REPO_BRANCH }}-last-build-sha" \
+            --confirm
+          gh actions-cache delete \
+            --repo ${{ github.repository }} \
+            --key "${{ env.REPO_PATH }}-${{ env.REPO_BRANCH }}-last-checked-sha" \
+            --confirm
 
       - name: 保存此次提交sha
         run: |
