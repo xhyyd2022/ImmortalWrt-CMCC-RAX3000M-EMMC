@@ -1,4 +1,4 @@
-name: IMwrt-24.10-6.6-test
+name: IMwrt-24.10-6.6
 
 on:
   repository_dispatch:
