@@ -531,13 +531,11 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          gh cache delete \
-            --repo ${{ github.repository }} \
-            --key "${{ env.REPO_PATH }}-${{ env.REPO_BRANCH }}-last-build-sha"
+          gh cache delete "${{ env.REPO_PATH }}-${{ env.REPO_BRANCH }}-last-build-sha" \
+            --repo ${{ github.repository }}
 
-          gh cache delete \
-            --repo ${{ github.repository }} \
-            --key "${{ env.REPO_PATH }}-${{ env.REPO_BRANCH }}-last-checked-sha"
+          gh cache delete "${{ env.REPO_PATH }}-${{ env.REPO_BRANCH }}-last-checked-sha" \
+            --repo ${{ github.repository }}
 
       - name: 保存此次提交sha
         run: |
