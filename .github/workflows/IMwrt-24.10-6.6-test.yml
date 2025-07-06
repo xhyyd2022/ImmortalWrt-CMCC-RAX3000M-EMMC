@@ -88,7 +88,7 @@ env:
 
 jobs:
   setup-cache:
-    if: ${{ env.CUSTOM_LAST_BUILD_SHA != '' || env.CUSTOM_LAST_CHECKED_SHA != '' }}
+    if: ${{ github.env.CUSTOM_LAST_BUILD_SHA != '' || github.env.CUSTOM_LAST_CHECKED_SHA != '' }}
     runs-on: ubuntu-22.04
     steps:
       - name: 检出本仓库代码
