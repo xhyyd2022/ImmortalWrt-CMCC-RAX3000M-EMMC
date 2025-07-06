@@ -88,7 +88,7 @@ env:
 
 jobs:
   setup-cache:
-    if: $CUSTOM_LAST_BUILD_SHA != '' || $CUSTOM_LAST_CHECKED_SHA != ''
+    if: ${{ env.CUSTOM_LAST_BUILD_SHA != '' || env.CUSTOM_LAST_CHECKED_SHA != '' }}
     runs-on: ubuntu-22.04
     steps:
       - name: 检出本仓库代码
@@ -114,6 +114,7 @@ jobs:
           key: ${{ env.REPO_PATH }}-${{ env.REPO_BRANCH }}-last-build-sha
 
   check-source-updates:
+    needs: setup-cache
     runs-on: ubuntu-22.04
     outputs:
       should_build: ${{ steps.check.outputs.should_build }}
