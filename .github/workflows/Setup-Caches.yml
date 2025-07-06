@@ -4,6 +4,7 @@ on:
   repository_dispatch:
     types: [build_firmware]
   workflow_dispatch:
+    inputs:
       repo_url:
         description: '源仓库 URL'
         default: 'https://github.com/padavanonly/immortalwrt-mt798x-24.10'
@@ -26,9 +27,6 @@ on:
         type: string
         required: false
         default: ''
-
-  schedule:
-    - cron: '0 4 * * *'  # 北京时间每天12:00
 
 permissions:
   contents: write
