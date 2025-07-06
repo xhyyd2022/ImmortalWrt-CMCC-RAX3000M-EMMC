@@ -261,7 +261,6 @@ jobs:
           ln -sf /workdir/openwrt $GITHUB_WORKSPACE/openwrt
 
       - name: 获取源码提交 SHA
-        working-directory: /workdir
         run: |
           if [ -f last_checked_sha.txt ]; then
             LAST_CHECKED_SHA=$(cat last_checked_sha.txt)
