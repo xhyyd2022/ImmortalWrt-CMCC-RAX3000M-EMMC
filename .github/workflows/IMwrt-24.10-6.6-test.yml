@@ -71,8 +71,8 @@ env:
   TZ: Asia/Shanghai
   ENABLE_5G_25DB: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.enable_5g_25db || secrets.ENABLE_5G_25DB || 'true' }}
   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN  }}
-  BUILD_COMMIT_MSGS: ''
-  CHECKED_COMMIT_MSGS: ''
+  BUILD_COMMIT_MSGS_FILE: ''
+  CHECKED_COMMIT_MSGS_FILE: ''
 
 jobs:
   check-source-updates:
@@ -187,13 +187,17 @@ jobs:
             echo "LAST_BUILD_SHA 为空，无法获取上次提交信息"
           else
             # 从上次提交 SHA 到当前 HEAD 的提交信息
-            BUILD_COMMIT_MSGS=$(git log $LAST_BUILD_SHA..HEAD --pretty=format:"%s" | awk '!a[$0]++' | sed 's/^/- /')
-            echo "BUILD_COMMIT_MSGS=${BUILD_COMMIT_MSGS}" >> $GITHUB_ENV
+            BUILD_COMMIT_MSGS=$()
+            # 生成临时文件
+            TEMP_FILE=$(mktemp)
+            git log $LAST_BUILD_SHA..HEAD --pretty=format:"%s" | awk '!a[$0]++' | sed 's/^/- /' > "$TEMP_FILE"
+            echo "BUILD_COMMIT_MSGS_FILE=$TEMP_FILE" >> $GITHUB_ENV
           fi
           if [ -z "$BUILD_COMMIT_MSGS" ]; then
             echo "本仓库无更新"
           else
-            echo "本仓库更新信息: $BUILD_COMMIT_MSGS"
+            echo "本仓库更新信息:"
+            cat $TEMP_FILE
           fi
 
       - name: 检查磁盘空间
@@ -443,15 +447,15 @@ jobs:
             echo "源仓库分支: $REPO_BRANCH"
             echo "配置文件: $CONFIG_FILE"
             echo "触发方式: $EVENT_TRIGGER_METHOD"
-            if [ -n "$BUILD_COMMIT_MSGS" ] || [ -n "$CHECKED_COMMIT_MSGS" ]; then
+            if [ -n "$BUILD_COMMIT_MSGS_FILE" ] || [ -n "$CHECKED_COMMIT_MSGS_FILE" ]; then
               echo -e "\n## 更新内容\n"
-              if [ -n "$BUILD_COMMIT_MSGS" ]; then
+              if [ -n "$BUILD_COMMIT_MSGS_FILE" ]; then
                 echo "### 本仓库更新\n"
-                echo "$BUILD_COMMIT_MSGS"
+                cat $BUILD_COMMIT_MSGS_FILE
               fi
-              if [ -n "$CHECKED_COMMIT_MSGS" ]; then
+              if [ -n "$CHECKED_COMMIT_MSGS_FILE" ]; then
                 echo "### 源仓库更新\n"
-                echo "$CHECKED_COMMIT_MSGS"
+                cat $CHECKED_COMMIT_MSGS_FILE
               fi
             fi
             echo -e "\n## 验证固件"
@@ -549,6 +553,10 @@ jobs:
           else
             echo "无需清理旧 Releases"
           fi
+
+      - name: 清理临时文件
+        if: always()  # 确保始终执行
+        run: rm -f ${{ env.BUILD_COMMIT_MSGS_FILE }} ${{ env.CHECKED_COMMIT_MSGS_FILE }}
 
       - name: 清理旧工作流运行
         if: steps.tag.outputs.status == 'success'
