@@ -262,6 +262,7 @@ jobs:
 
       - name: 获取源码提交 SHA
         run: |
+          cd /workdir/openwrt
           if [ -f last_checked_sha.txt ]; then
             LAST_CHECKED_SHA=$(cat last_checked_sha.txt)
             echo "读取到上次提交 SHA: $LAST_CHECKED_SHA"
@@ -269,19 +270,16 @@ jobs:
             LAST_CHECKED_SHA=""
             echo "last_checked_sha.txt 文件不存在，无法获取上次提交 SHA"
           fi
-
           if [ -z "$LAST_CHECKED_SHA" ]; then
             echo "LAST_CHECKED_SHA 为空，无法获取上次提交信息"
           else
             # 从上次提交 SHA 到当前 HEAD 的提交信息
-            cd /workdir/openwrt
+
             # 生成临时文件
             TEMP_FILE=$(mktemp)
             # 从上次提交 SHA 到当前 HEAD 的提交信息
             git log $LAST_CHECKED_SHA..HEAD --pretty=format:"%s" | awk '!a[$0]++' | sed 's/^/- /' > "$TEMP_FILE"
             echo "CHECKED_COMMIT_MSGS_FILE=$TEMP_FILE" >> $GITHUB_ENV
-            echo "存入源仓库最新提交信息到文件"
-            echo "$(git rev-parse HEAD)" > /workdir/last_checked_sha.txt
           fi
           if [ -z "$TEMP_FILE" ]; then
             echo "源仓库无更新"
@@ -289,6 +287,8 @@ jobs:
             echo "源仓库更新信息:"
             cat $TEMP_FILE
           fi
+          echo "存入源仓库最新提交信息到文件"
+          echo "$(git rev-parse HEAD)" > /workdir/last_checked_sha.txt
 
       # - name: 加载 Feeds
       #   timeout-minutes: 10
