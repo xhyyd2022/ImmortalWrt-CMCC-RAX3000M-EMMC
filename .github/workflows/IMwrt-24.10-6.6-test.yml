@@ -232,52 +232,56 @@ jobs:
       #     echo "export CCACHE_DIR=$HOME/.ccache" >> $GITHUB_ENV
       #     ccache -M 5G
 
-      # - name: 安装 GitHub CLI
-      #   run: |
-      #     sudo apt-get install -y gh
+      - name: 安装 GitHub CLI
+        run: |
+          sudo apt-get install -y gh
 
-      # - name: 克隆源码
-      #   working-directory: /workdir
-      #   run: |
-      #     if [ -d "/workdir/openwrt" ]; then
-      #       echo "检测到 openwrt 目录已存在，正在清理..."
-      #       rm -rf /workdir/openwrt
-      #     fi
-      #     for i in {1..3}; do
-      #       git clone $REPO_URL -b $REPO_BRANCH openwrt && break
-      #       echo "克隆失败，重试 $i/3"
-      #       sleep 5
-      #     done
-      #     if [ ! -d "/workdir/openwrt" ]; then
-      #       echo "错误：源码克隆失败"
-      #       exit 1
-      #     fi
-      #     ln -sf /workdir/openwrt $GITHUB_WORKSPACE/openwrt
+      - name: 克隆源码
+        working-directory: /workdir
+        run: |
+          if [ -d "/workdir/openwrt" ]; then
+            echo "检测到 openwrt 目录已存在，正在清理..."
+            rm -rf /workdir/openwrt
+          fi
+          for i in {1..3}; do
+            git clone $REPO_URL -b $REPO_BRANCH openwrt && break
+            echo "克隆失败，重试 $i/3"
+            sleep 5
+          done
+          if [ ! -d "/workdir/openwrt" ]; then
+            echo "错误：源码克隆失败"
+            exit 1
+          fi
+          ln -sf /workdir/openwrt $GITHUB_WORKSPACE/openwrt
 
-      # - name: 获取源码提交 SHA
-      #   working-directory: /workdir
-      #   run: |
-      #     if [ -f last_checked_sha.txt ]; then
-      #       LAST_CHECKED_SHA=$(cat last_checked_sha.txt)
-      #       echo "读取到上次提交 SHA: $LAST_CHECKED_SHA"
-      #     else
-      #       LAST_CHECKED_SHA=""
-      #       echo "last_checked_sha.txt 文件不存在，无法获取上次提交 SHA"
-      #     fi
+      - name: 获取源码提交 SHA
+        working-directory: /workdir
+        run: |
+          if [ -f last_checked_sha.txt ]; then
+            LAST_CHECKED_SHA=$(cat last_checked_sha.txt)
+            echo "读取到上次提交 SHA: $LAST_CHECKED_SHA"
+          else
+            LAST_CHECKED_SHA=""
+            echo "last_checked_sha.txt 文件不存在，无法获取上次提交 SHA"
+          fi
 
-      #     if [ -z "$LAST_CHECKED_SHA" ]; then
-      #       echo "LAST_CHECKED_SHA 为空，无法获取上次提交信息"
-      #     else
-      #       # 从上次提交 SHA 到当前 HEAD 的提交信息
-      #       cd /workdir/openwrt
-      #       CHECKED_COMMIT_MSGS=$(git log $LAST_CHECKED_SHA..HEAD --pretty=format:"%s" | awk '!a[$0]++' | sed 's/^/- ：/')
-      #       echo "CHECKED_COMMIT_MSGS=${CHECKED_COMMIT_MSGS}" >> $GITHUB_ENV
-      #     fi
-      #     if [ -z "$CHECKED_COMMIT_MSGS" ]; then
-      #       echo "源仓库无更新"
-      #     else
-      #       echo "源仓库更新信息: $CHECKED_COMMIT_MSGS"
-      #     fi
+          if [ -z "$LAST_CHECKED_SHA" ]; then
+            echo "LAST_CHECKED_SHA 为空，无法获取上次提交信息"
+          else
+            # 从上次提交 SHA 到当前 HEAD 的提交信息
+            cd /workdir/openwrt
+            # 生成临时文件
+            TEMP_FILE=$(mktemp)
+            # 从上次提交 SHA 到当前 HEAD 的提交信息
+            git log $LAST_CHECKED_SHA..HEAD --pretty=format:"%s" | awk '!a[$0]++' | sed 's/^/- /' > "$TEMP_FILE"
+            echo "CHECKED_COMMIT_MSGS_FILE=$TEMP_FILE" >> $GITHUB_ENV
+          fi
+          if [ -z "$TEMP_FILE" ]; then
+            echo "源仓库无更新"
+          else
+            echo "源仓库更新信息:"
+            cat $TEMP_FILE
+          fi
 
       # - name: 加载 Feeds
       #   timeout-minutes: 10
@@ -449,13 +453,13 @@ jobs:
             echo "配置文件: $CONFIG_FILE"
             echo "触发方式: $EVENT_TRIGGER_METHOD"
             if [ -n "$BUILD_COMMIT_MSGS_FILE" ] || [ -n "$CHECKED_COMMIT_MSGS_FILE" ]; then
-              echo -e "\n## 更新内容\n"
+              echo -e "\n## 更新内容"
               if [ -n "$BUILD_COMMIT_MSGS_FILE" ]; then
-                echo "### 本仓库更新\n"
+                echo "### 本仓库更新"
                 cat $BUILD_COMMIT_MSGS_FILE
               fi
               if [ -n "$CHECKED_COMMIT_MSGS_FILE" ]; then
-                echo "### 源仓库更新\n"
+                echo "### 源仓库更新"
                 cat $CHECKED_COMMIT_MSGS_FILE
               fi
             fi
