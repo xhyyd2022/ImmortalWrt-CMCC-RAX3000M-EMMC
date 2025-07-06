@@ -51,16 +51,6 @@ on:
         type: boolean
         required: true
         default: false
-      custom_last_build_sha:
-        description: '自定义本仓库上次构建的 SHA'
-        type: string
-        required: false
-        default: ''
-      custom_last_checked_sha:
-        description: '自定义源仓库上次检查的 SHA'
-        type: string
-        required: false
-        default: ''
 
   schedule:
     - cron: '0 4 * * *'  # 北京时间每天12:00
@@ -81,40 +71,11 @@ env:
   TZ: Asia/Shanghai
   ENABLE_5G_25DB: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.enable_5g_25db || secrets.ENABLE_5G_25DB || 'true' }}
   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN  }}
-  CUSTOM_LAST_BUILD_SHA: ${{ github.event.inputs.custom_last_build_sha || '' }}
-  CUSTOM_LAST_CHECKED_SHA: ${{ github.event.inputs.custom_last_checked_sha || '' }}
   BUILD_COMMIT_MSGS: ''
   CHECKED_COMMIT_MSGS: ''
 
 jobs:
-  setup-cache:
-    if: ${{ github.env.CUSTOM_LAST_BUILD_SHA != '' || github.env.CUSTOM_LAST_CHECKED_SHA != '' }}
-    runs-on: ubuntu-22.04
-    steps:
-      - name: 检出本仓库代码
-        uses: actions/checkout@v4
-
-      - name: 安装 GitHub CLI
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y gh
-
-      - name: 设置 last_checked_sha 缓存
-        id: cache-sha
-        uses: actions/cache@v4
-        with:
-          path: last_checked_sha.txt
-          key: ${{ env.REPO_PATH }}-${{ env.REPO_BRANCH }}-last-checked-sha
-
-      - name: 设置 last_build_sha 缓存
-        id: cache-build-sha
-        uses: actions/cache@v4
-        with:
-          path: last_build_sha.txt
-          key: ${{ env.REPO_PATH }}-${{ env.REPO_BRANCH }}-last-build-sha
-
   check-source-updates:
-    needs: setup-cache
     runs-on: ubuntu-22.04
     outputs:
       should_build: ${{ steps.check.outputs.should_build }}
