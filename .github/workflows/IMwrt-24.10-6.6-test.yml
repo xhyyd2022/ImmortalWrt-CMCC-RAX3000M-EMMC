@@ -287,8 +287,11 @@ jobs:
             echo "源仓库更新信息:"
             cat $TEMP_FILE
           fi
+          echo "输出源仓库最近的 5 条提交日志"
+          git log -n 5
           echo "存入源仓库最新提交信息到文件"
           echo "$(git rev-parse HEAD)" > /workdir/last_checked_sha.txt
+          cat /workdir/last_checked_sha.txt
 
       # - name: 加载 Feeds
       #   timeout-minutes: 10
