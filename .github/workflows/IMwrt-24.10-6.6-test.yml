@@ -459,17 +459,17 @@ jobs:
             echo "触发方式: $EVENT_TRIGGER_METHOD"
             if [ -n "$BUILD_COMMIT_MSGS_FILE" ] || [ -n "$CHECKED_COMMIT_MSGS_FILE" ]; then
               echo -e "\n## 更新内容"
+
+              # 处理本仓库更新
               if [ -n "$BUILD_COMMIT_MSGS_FILE" ]; then
-                if [ -n "$CHECKED_COMMIT_MSGS_FILE" ]; then
-                  echo "### 本仓库更新"
-                fi
-                cat $BUILD_COMMIT_MSGS_FILE
+                [ -n "$CHECKED_COMMIT_MSGS_FILE" ] && echo "### 本仓库更新"
+                cat "$BUILD_COMMIT_MSGS_FILE"
               fi
+
+              # 处理源仓库更新
               if [ -n "$CHECKED_COMMIT_MSGS_FILE" ]; then
-                if [ -n "$BUILD_COMMIT_MSGS_FILE" ]; then
-                    echo "### 源仓库更新"
-                fi
-                cat $CHECKED_COMMIT_MSGS_FILE
+                [ -n "$BUILD_COMMIT_MSGS_FILE" ] && echo "### 源仓库更新"
+                cat "$CHECKED_COMMIT_MSGS_FILE"
               fi
             fi
             echo -e "\n## 验证固件"
