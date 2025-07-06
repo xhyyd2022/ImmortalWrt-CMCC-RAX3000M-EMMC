@@ -81,14 +81,14 @@ env:
   TZ: Asia/Shanghai
   ENABLE_5G_25DB: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.enable_5g_25db || secrets.ENABLE_5G_25DB || 'true' }}
   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN  }}
-  custom_last_build_sha: ${{ github.event.inputs.custom_last_build_sha || '' }}
-  custom_last_checked_sha: ${{ github.event.inputs.custom_last_checked_sha || '' }}
+  CUSTOM_LAST_BUILD_SHA: ${{ github.event.inputs.custom_last_build_sha || '' }}
+  CUSTOM_LAST_CHECKED_SHA: ${{ github.event.inputs.custom_last_checked_sha || '' }}
   BUILD_COMMIT_MSGS: ''
   CHECKED_COMMIT_MSGS: ''
 
 jobs:
   setup-cache:
-    if: $custom_last_build_sha != '' || $custom_last_checked_sha != ''
+    if: $CUSTOM_LAST_BUILD_SHA != '' || $CUSTOM_LAST_CHECKED_SHA != ''
     runs-on: ubuntu-22.04
     steps:
       - name: 检出本仓库代码
