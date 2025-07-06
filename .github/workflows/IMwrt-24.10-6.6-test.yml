@@ -184,12 +184,14 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          echo "当前的缓存列表"
           gh cache list
           gh cache delete "${{ env.REPO_PATH }}-${{ env.REPO_BRANCH }}-last-build-sha" \
             --repo ${{ github.repository }}
 
           gh cache delete "${{ env.REPO_PATH }}-${{ env.REPO_BRANCH }}-last-checked-sha" \
             --repo ${{ github.repository }}
+          echo "删除指定缓存后，当前的缓存列表"
           gh cache list
 
       - name: 设置最新提交信息
@@ -548,6 +550,25 @@ jobs:
       - name: 保存此次提交sha
         run: |
           echo "$(git rev-parse HEAD)" > last_build_sha.txt
+
+      - name: 校验缓存文件
+        run: |
+          echo "检查 last_build_sha.txt 文件内容"
+          if [ ! -f last_build_sha.txt ]; then
+            echo "错误：last_build_sha.txt 文件不存在"
+            exit 1
+          else
+            echo "last_build_sha.txt 文件存在"
+            cat last_build_sha.txt
+          fi
+          echo "检查 last_checked_sha.txt 文件内容"
+          if [ ! -f last_checked_sha.txt ]; then
+            echo "错误：last_checked_sha.txt 文件不存在"
+            exit 1
+          else
+            echo "last_checked_sha.txt 文件存在"
+            cat last_checked_sha.txt
+          fi
 
       - name: 保存此次提交sha缓存
         uses: actions/cache@v4
