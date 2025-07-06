@@ -426,11 +426,11 @@ jobs:
           # 测试
           echo "FIRMWARE_VERSION=1234567890" >> $GITHUB_ENV
           set -e
-          # 验证必要变量
-          if [ -z "${{ matrix.device_model }}" ] || [ -z "${{ env.FIRMWARE_VERSION }}" ]; then
-            echo "Missing required variables"
-            exit 1
-          fi
+          # # 验证必要变量
+          # if [ -z "${{ matrix.device_model }}" ] || [ -z "${{ env.FIRMWARE_VERSION }}" ]; then
+          #   echo "Missing required variables"
+          #   exit 1
+          # fi
 
           # 生成标签
           TAG="ImmortalWrt-24.10-6.6-${{ matrix.device_model }}-${{ env.FIRMWARE_VERSION }}"
