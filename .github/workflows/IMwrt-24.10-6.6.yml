@@ -138,7 +138,7 @@ jobs:
 
   build:
     needs: check-source-updates
-    if: github.event_name == 'workflow_dispatch' || needs.check-source-updates.outputs.should_build == 'true'
+    if: github.event_name == 'workflow_dispatch' || github.event_name == 'push' || needs.check-source-updates.outputs.should_build == 'true'
     runs-on: ubuntu-22.04
     name: 编译 ${{ matrix.device_model }}
     strategy:
