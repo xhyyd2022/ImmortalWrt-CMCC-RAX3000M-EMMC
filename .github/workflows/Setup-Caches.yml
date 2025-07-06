@@ -46,10 +46,10 @@ jobs:
       - name: 检出本仓库代码
         uses: actions/checkout@v4
 
-      - name: 安装 GitHub CLI
+      - name: 生成缓存文件
         run: |
-          sudo apt-get update
-          sudo apt-get install -y gh
+          echo "${{ env.CUSTOM_LAST_BUILD_SHA }}" > last_build_sha.txt
+          echo "${{ env.CUSTOM_LAST_CHECKED_SHA }}" > last_checked_sha.txt
 
       - name: 设置 last_checked_sha 缓存
         id: cache-sha
