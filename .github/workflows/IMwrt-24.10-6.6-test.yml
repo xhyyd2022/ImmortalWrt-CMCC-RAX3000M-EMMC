@@ -533,6 +533,7 @@ jobs:
           echo "Release 创建成功: $RELEASE_TAG"
 
       - name: 删除指定缓存
+        continue-on-error: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
