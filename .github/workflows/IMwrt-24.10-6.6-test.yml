@@ -159,6 +159,9 @@ jobs:
       - name: 检出代码
         uses: actions/checkout@v4
 
+      - name: 设置 REPO_PATH
+        run: echo "REPO_PATH=$(echo $REPO_URL | sed -E 's#https://github.com/##;s#/$##')" >> $GITHUB_ENV
+        
       - name: 获取此次提交sha缓存
         uses: actions/cache@v4
         with:
