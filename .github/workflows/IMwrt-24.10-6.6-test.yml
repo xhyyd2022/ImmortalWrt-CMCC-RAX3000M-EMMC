@@ -280,6 +280,8 @@ jobs:
             # 从上次提交 SHA 到当前 HEAD 的提交信息
             git log $LAST_CHECKED_SHA..HEAD --pretty=format:"%s" | awk '!a[$0]++' | sed 's/^/- /' > "$TEMP_FILE"
             echo "CHECKED_COMMIT_MSGS_FILE=$TEMP_FILE" >> $GITHUB_ENV
+            echo "存入源仓库最新提交信息到文件"
+            echo "$(git rev-parse HEAD)" > ../../last_checked_sha.txt
           fi
           if [ -z "$TEMP_FILE" ]; then
             echo "源仓库无更新"
