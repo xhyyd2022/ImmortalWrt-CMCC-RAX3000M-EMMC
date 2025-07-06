@@ -84,11 +84,6 @@ jobs:
       - name: 检出本仓库代码
         uses: actions/checkout@v4
 
-      - name: 安装 GitHub CLI
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y gh
-
       - name: 设置 REPO_PATH
         run: echo "REPO_PATH=$(echo $REPO_URL | sed -E 's#https://github.com/##;s#/$##')" >> $GITHUB_ENV
 
@@ -98,6 +93,11 @@ jobs:
         with:
           path: last_checked_sha.txt
           key: ${{ env.REPO_PATH }}-${{ env.REPO_BRANCH }}-last-checked-sha
+
+      - name: 安装 GitHub CLI
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gh
 
       - name: 检查源仓库更新
         id: check
@@ -178,6 +178,19 @@ jobs:
         with:
           path: last_checked_sha.txt
           key: ${{ env.REPO_PATH }}-${{ env.REPO_BRANCH }}-last-checked-sha
+
+      - name: 删除指定缓存
+        continue-on-error: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh cache list
+          gh cache delete "${{ env.REPO_PATH }}-${{ env.REPO_BRANCH }}-last-build-sha" \
+            --repo ${{ github.repository }}
+
+          gh cache delete "${{ env.REPO_PATH }}-${{ env.REPO_BRANCH }}-last-checked-sha" \
+            --repo ${{ github.repository }}
+          gh cache list
 
       - name: 设置最新提交信息
         run: |
@@ -531,17 +544,6 @@ jobs:
             exit 1
           fi
           echo "Release 创建成功: $RELEASE_TAG"
-
-      - name: 删除指定缓存
-        continue-on-error: true
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          gh cache delete "${{ env.REPO_PATH }}-${{ env.REPO_BRANCH }}-last-build-sha" \
-            --repo ${{ github.repository }}
-
-          gh cache delete "${{ env.REPO_PATH }}-${{ env.REPO_BRANCH }}-last-checked-sha" \
-            --repo ${{ github.repository }}
 
       - name: 保存此次提交sha
         run: |
