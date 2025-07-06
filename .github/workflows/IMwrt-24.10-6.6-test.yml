@@ -457,18 +457,18 @@ jobs:
             echo "源仓库分支: $REPO_BRANCH"
             echo "配置文件: $CONFIG_FILE"
             echo "触发方式: $EVENT_TRIGGER_METHOD"
-            if [ -n "$BUILD_COMMIT_MSGS_FILE" ] || [ -n "$CHECKED_COMMIT_MSGS_FILE" ]; then
+            if [ -s "$BUILD_COMMIT_MSGS_FILE" ] || [ -s "$CHECKED_COMMIT_MSGS_FILE" ]; then
               echo -e "\n## 更新内容"
 
-              # 处理本仓库更新
-              if [ -n "$BUILD_COMMIT_MSGS_FILE" ]; then
-                [ -n "$CHECKED_COMMIT_MSGS_FILE" ] && echo "### 本仓库更新"
+              # 本仓库输出
+              if [ -s "$BUILD_COMMIT_MSGS_FILE" ]; then
+                [ -s "$CHECKED_COMMIT_MSGS_FILE" ] && echo "### 本仓库更新" || echo "### 更新"
                 cat "$BUILD_COMMIT_MSGS_FILE"
               fi
 
-              # 处理源仓库更新
-              if [ -n "$CHECKED_COMMIT_MSGS_FILE" ]; then
-                [ -n "$BUILD_COMMIT_MSGS_FILE" ] && echo "### 源仓库更新"
+              # 源仓库输出
+              if [ -s "$CHECKED_COMMIT_MSGS_FILE" ]; then
+                [ -s "$BUILD_COMMIT_MSGS_FILE" ] && echo "### 源仓库更新" || echo "### 更新"
                 cat "$CHECKED_COMMIT_MSGS_FILE"
               fi
             fi
