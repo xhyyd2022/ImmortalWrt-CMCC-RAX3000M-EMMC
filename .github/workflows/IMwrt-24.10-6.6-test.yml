@@ -209,28 +209,28 @@ jobs:
           fi
           echo "可用磁盘空间：${AVAILABLE}G"
 
-      # - name: 初始化环境
-      #   env:
-      #     DEBIAN_FRONTEND: noninteractive
-      #   run: |
-      #     sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL
-      #     sudo docker image prune --all --force
-      #     sudo apt-get update
-      #     sudo apt-get install -y build-essential ccache cmake curl git gawk gcc-multilib g++-multilib \
-      #       libelf-dev libfuse-dev libglib2.0-dev libgmp3-dev libltdl-dev libmpc-dev libmpfr-dev \
-      #       libncurses5-dev libncursesw5-dev libpython3-dev libreadline-dev libssl-dev libtool \
-      #       ninja-build python3 python3-pyelftools rsync unzip vim wget zlib1g-dev
-      #     sudo apt-get autoremove --purge
-      #     sudo apt-get clean
-      #     sudo timedatectl set-timezone "$TZ"
-      #     sudo mkdir -p /workdir
-      #     sudo chown $USER:$GROUPS /workdir
+      - name: 初始化环境
+        env:
+          DEBIAN_FRONTEND: noninteractive
+        run: |
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL
+          sudo docker image prune --all --force
+          sudo apt-get update
+          sudo apt-get install -y build-essential ccache cmake curl git gawk gcc-multilib g++-multilib \
+            libelf-dev libfuse-dev libglib2.0-dev libgmp3-dev libltdl-dev libmpc-dev libmpfr-dev \
+            libncurses5-dev libncursesw5-dev libpython3-dev libreadline-dev libssl-dev libtool \
+            ninja-build python3 python3-pyelftools rsync unzip vim wget zlib1g-dev
+          sudo apt-get autoremove --purge
+          sudo apt-get clean
+          sudo timedatectl set-timezone "$TZ"
+          sudo mkdir -p /workdir
+          sudo chown $USER:$GROUPS /workdir
 
-      # - name: 配置 ccache
-      #   run: |
-      #     echo "export PATH=/usr/lib/ccache:$PATH" >> $GITHUB_ENV
-      #     echo "export CCACHE_DIR=$HOME/.ccache" >> $GITHUB_ENV
-      #     ccache -M 5G
+      - name: 配置 ccache
+        run: |
+          echo "export PATH=/usr/lib/ccache:$PATH" >> $GITHUB_ENV
+          echo "export CCACHE_DIR=$HOME/.ccache" >> $GITHUB_ENV
+          ccache -M 5G
 
       - name: 安装 GitHub CLI
         run: |
