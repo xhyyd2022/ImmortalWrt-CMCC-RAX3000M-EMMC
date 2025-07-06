@@ -83,7 +83,9 @@ jobs:
     steps:
       - name: 检出本仓库代码
         uses: actions/checkout@v4
-
+        with:
+          fetch-depth: 0
+          
       - name: 安装 GitHub CLI
         run: |
           sudo apt-get update
@@ -161,8 +163,8 @@ jobs:
 
       - name: 设置 REPO_PATH
         run: echo "REPO_PATH=$(echo $REPO_URL | sed -E 's#https://github.com/##;s#/$##')" >> $GITHUB_ENV
-        
-      - name: 获取此次提交sha缓存
+
+      - name: 获取上次提交sha缓存
         uses: actions/cache@v4
         with:
           path: last_build_sha.txt
@@ -182,7 +184,7 @@ jobs:
             echo "LAST_BUILD_SHA 为空，无法获取上次提交信息"
           else
             # 从上次提交 SHA 到当前 HEAD 的提交信息
-            BUILD_COMMIT_MSGS=$(git log $LAST_BUILD_SHA..HEAD --pretty=format:"%s" | awk '!a[$0]++' | sed 's/^/- ：/')
+            BUILD_COMMIT_MSGS=$(git log $LAST_BUILD_SHA..HEAD --pretty=format:"%s" | awk '!a[$0]++' | sed 's/^/- /')
             echo "BUILD_COMMIT_MSGS=${BUILD_COMMIT_MSGS}" >> $GITHUB_ENV
           fi
           if [ -z "$BUILD_COMMIT_MSGS" ]; then
