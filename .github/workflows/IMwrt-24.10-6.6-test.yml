@@ -186,18 +186,17 @@ jobs:
           if [ -z "$LAST_BUILD_SHA" ]; then
             echo "LAST_BUILD_SHA 为空，无法获取上次提交信息"
           else
-            # 从上次提交 SHA 到当前 HEAD 的提交信息
-            BUILD_COMMIT_MSGS=$()
             # 生成临时文件
             TEMP_FILE=$(mktemp)
+            # 从上次提交 SHA 到当前 HEAD 的提交信息
             git log $LAST_BUILD_SHA..HEAD --pretty=format:"%s" | awk '!a[$0]++' | sed 's/^/- /' > "$TEMP_FILE"
             echo "BUILD_COMMIT_MSGS_FILE=$TEMP_FILE" >> $GITHUB_ENV
           fi
-          if [ -z "$BUILD_COMMIT_MSGS" ]; then
+          if [ -z "$BUILD_COMMIT_MSGS_FILE" ]; then
             echo "本仓库无更新"
           else
             echo "本仓库更新信息:"
-            cat $TEMP_FILE
+            cat $BUILD_COMMIT_MSGS_FILE
           fi
 
       - name: 检查磁盘空间
