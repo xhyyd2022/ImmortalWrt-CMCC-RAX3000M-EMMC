@@ -520,7 +520,6 @@ jobs:
           body_path: release
           files: |
             ${{ env.FIRMWARE }}/*sysupgrade*.*
-            # ${{ env.FIRMWARE }}/*factory*.*
 
       - name: 验证Release创建
         run: |
