@@ -1,4 +1,4 @@
-name: 清理未关联 Release 的 Tag
+name: Clean Orphan Tags
 
 on:
   schedule:
@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
 
 jobs:
-  delete-orphan-tags:
+  runs:
     runs-on: ubuntu-latest
     permissions:
       contents: write # 授予写入权限以删除 Tag
@@ -15,6 +15,8 @@ jobs:
     steps:
       - name: 检查仓库
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # 获取完整历史记录
 
       - name: 获取所有 Tag 和 Release
         id: get_tags_releases
