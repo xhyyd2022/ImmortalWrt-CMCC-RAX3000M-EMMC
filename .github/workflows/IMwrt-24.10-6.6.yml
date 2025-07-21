@@ -53,7 +53,7 @@ on:
         default: false
 
   schedule:
-    - cron: '0 16 * * *'  # 北京时间每天00:00
+    - cron: '0 4 * * *'  # 北京时间每天12:00
 
 permissions:
   contents: write
@@ -110,32 +110,35 @@ jobs:
           response=$(curl -s -f -H "Accept: application/vnd.github.v3+json" "$LATEST_URL")
           LATEST_SHA=$(echo "$response" | jq -r '.sha' || echo "")
           LATEST_COMMIT_MESSAGE=$(echo "$response" | jq -r '.commit.message' || echo "")
+      
           if [ -z "$LATEST_SHA" ] || [ "$LATEST_SHA" = "null" ]; then
             echo "无法获取最新 SHA，跳过编译"
             echo "should_build=false" >> $GITHUB_OUTPUT
-            echo "LATEST_COMMIT_MESSAGE=" >> $GITHUB_OUTPUT
-          fi
-          echo "源仓库最新提交 sha: $LATEST_SHA"
-          echo "LATEST_SHA=$LATEST_SHA" >> $GITHUB_ENV
-
-          LAST_CHECKED_FILE="last_checked_sha.txt"
-          LAST_CHECKED_SHA=$(cat "$LAST_CHECKED_FILE" 2>/dev/null || echo "")
-
-          if [ -n "$LAST_CHECKED_SHA" ]; then
-              echo "缓存中找到上次检查的 SHA： $LAST_CHECKED_SHA"
           else
-              echo "缓存中未找到上次检查的 SHA"
-          fi
-
-          if [ "$LATEST_SHA" != "$LAST_CHECKED_SHA" ]; then
-            echo "检测到源仓库更新：$LATEST_SHA"
-            echo "should_build=true" >> $GITHUB_OUTPUT
-            echo "$LATEST_SHA" > "$LAST_CHECKED_FILE"
-            echo "LATEST_COMMIT_MESSAGE=$LATEST_COMMIT_MESSAGE" >> $GITHUB_OUTPUT
-            echo "最新提交信息: $LATEST_COMMIT_MESSAGE" # For logging
-          else
-            echo "源仓库无更新，跳过编译"
-            echo "should_build=false" >> $GITHUB_OUTPUT
+            echo "源仓库最新提交 sha: $LATEST_SHA"
+            echo "LATEST_SHA=$LATEST_SHA" >> $GITHUB_ENV # Keep this for environment variable
+      
+            LAST_CHECKED_FILE="last_checked_sha.txt"
+            LAST_CHECKED_SHA=$(cat "$LAST_CHECKED_FILE" 2>/dev/null || echo "")
+      
+            if [ -n "$LAST_CHECKED_SHA" ]; then
+                echo "缓存中找到上次检查的 SHA： $LAST_CHECKED_SHA"
+            else
+                echo "缓存中未找到上次检查的 SHA"
+            fi
+      
+            if [ "$LATEST_SHA" != "$LAST_CHECKED_SHA" ]; then
+              echo "检测到源仓库更新：$LATEST_SHA"
+              echo "should_build=true" >> $GITHUB_OUTPUT
+              echo "$LATEST_SHA" > "$LAST_CHECKED_FILE"
+              echo "LATEST_COMMIT_MESSAGE<<EOF" >> $GITHUB_OUTPUT
+              echo "$LATEST_COMMIT_MESSAGE" >> $GITHUB_OUTPUT
+              echo "EOF" >> $GITHUB_OUTPUT
+              echo "最新提交信息: $LATEST_COMMIT_MESSAGE" # For logging
+            else
+              echo "源仓库无更新，跳过编译"
+              echo "should_build=false" >> $GITHUB_OUTPUT
+            fi
           fi
 
   build:
