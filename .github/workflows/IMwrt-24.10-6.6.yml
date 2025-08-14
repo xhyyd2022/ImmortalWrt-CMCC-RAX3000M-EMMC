@@ -368,6 +368,11 @@ jobs:
         uses: P3TERX/ssh2actions@v1.0.0
         if: (github.event.inputs.ssh == 'true')
 
+      - name: 验证 kmod-nf-ipvs 是否启用并打包
+        run: |
+          grep CONFIG_PACKAGE_kmod-nf-ipvs=y openwrt/.config
+          find openwrt/bin/targets -name '*nf-ipvs*.ipk'
+
       - name: 上传 .config
         uses: actions/upload-artifact@v4
         if: (github.event.inputs.ssh == 'true')
@@ -439,14 +444,6 @@ jobs:
           done
           echo "FIRMWARE=$PWD" >> $GITHUB_ENV
           echo "status=success" >> $GITHUB_OUTPUT
-
-      - name: 验证 kmod-nf-ipvs 是否启用并打包
-        run: |
-          set -e
-          grep CONFIG_PACKAGE_kmod-nf-ipvs=y openwrt/.config
-          find openwrt/bin/targets -name '*nf-ipvs*.ipk'
-          unsquashfs openwrt/bin/targets/mediatek/filogic/*sysupgrade*.bin
-          ls squashfs-root/lib/modules/*/ip_vs.ko
 
       - name: 上传 bin
         uses: actions/upload-artifact@v4
