@@ -48,7 +48,6 @@ else
 fi
 
 echo ">>> 强制启用 kmod-nf-ipvs 模块"
-
 cat <<EOF >> .config
 CONFIG_PACKAGE_kmod-nf-ipvs=y
 CONFIG_PACKAGE_kmod-ipvs=y
@@ -56,6 +55,8 @@ CONFIG_PACKAGE_kmod-ipvs-core=y
 CONFIG_PACKAGE_kmod-ipvs-rr=y
 CONFIG_PACKAGE_kmod-ipvs-wrr=y
 CONFIG_PACKAGE_kmod-ipvs-sh=y
+CONFIG_PACKAGE_libip4tc2=y
+CONFIG_PACKAGE_libip6tc2=y
 EOF
 
 make defconfig
