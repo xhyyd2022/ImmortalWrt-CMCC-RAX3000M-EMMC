@@ -23,6 +23,11 @@ on:
         type: boolean
         required: true
         default: true
+      upload_packages_dir:
+        description: '上传 packages 目录'
+        type: boolean
+        required: true
+        default: false
       repo_url:
         description: '源仓库 URL'
         default: 'https://github.com/padavanonly/immortalwrt-mt798x-24.10'
@@ -158,6 +163,7 @@ jobs:
           echo "设备型号: ${{ matrix.device_model }}"
           echo "5G 25dB: ${{ env.ENABLE_5G_25DB }}"
           echo "上传 bin 目录: ${{ github.event.inputs.upload_bin_dir }}"
+          echo "上传 packages 目录: ${{ github.event.inputs.upload_packages_dir }}"
 
       - name: 检出代码
         uses: actions/checkout@v4
@@ -228,7 +234,7 @@ jobs:
           sudo apt-get install -y build-essential ccache cmake curl git gawk gcc-multilib g++-multilib \
             libelf-dev libfuse-dev libglib2.0-dev libgmp3-dev libltdl-dev libmpc-dev libmpfr-dev \
             libncurses5-dev libncursesw5-dev libpython3-dev libreadline-dev libssl-dev libtool \
-            ninja-build python3 python3-pyelftools rsync unzip vim wget zlib1g-dev
+            ninja-build python3 python3-pyelftools rsync unzip vim wget zlib1g-dev squashfs-tools
           sudo apt-get autoremove --purge
           sudo apt-get clean
           sudo timedatectl set-timezone "$TZ"
@@ -380,11 +386,6 @@ jobs:
           echo "DEVICE_NAME=_${{ matrix.device_model }}" >> $GITHUB_ENV
           echo "FILE_DATE=_$(date +"%Y%m%d%H%M")" >> $GITHUB_ENV
 
-      - name: 验证 kmod-nf-ipvs 是否启用
-        run: |
-          grep nf-ipvs openwrt/.config || echo "未启用 kmod-nf-ipvs"
-          find openwrt/bin/targets -name '*nf-ipvs*.ipk' || echo "未生成 kmod-nf-ipvs 包"
-
       - name: 上传编译日志
         if: failure()
         uses: actions/upload-artifact@v4
@@ -417,7 +418,10 @@ jobs:
         run: |
           set -e
           cd openwrt/bin/targets/*/*
-          rm -rf packages
+
+          rm -rf ${{ github.workspace }}/packages
+          mv packages ${{ github.workspace }} || true
+
           ls -la
           if [ "$ENABLE_5G_25DB" = "true" ]; then
             DB25="on"
@@ -436,12 +440,27 @@ jobs:
           echo "FIRMWARE=$PWD" >> $GITHUB_ENV
           echo "status=success" >> $GITHUB_OUTPUT
 
+      - name: 验证 kmod-nf-ipvs 是否启用并打包
+        run: |
+          set -e
+          grep CONFIG_PACKAGE_kmod-nf-ipvs=y openwrt/.config
+          find openwrt/bin/targets -name '*nf-ipvs*.ipk'
+          unsquashfs openwrt/bin/targets/mediatek/filogic/*sysupgrade*.bin
+          ls squashfs-root/lib/modules/*/ip_vs.ko
+
       - name: 上传 bin
         uses: actions/upload-artifact@v4
         if: steps.compile.outputs.status == 'success' && github.event_name == 'workflow_dispatch' && github.event.inputs.upload_bin_dir == 'true'
         with:
           name: OpenWrt_bin${{ env.DEVICE_NAME }}${{ env.FILE_DATE }}
           path: openwrt/bin
+
+      - name: 上传 packages
+        uses: actions/upload-artifact@v4
+        if: steps.compile.outputs.status == 'success' && github.event_name == 'workflow_dispatch' && github.event.inputs.upload_packages_dir == 'true'
+        with:
+          name: OpenWrt_packages${{ env.DEVICE_NAME }}${{ env.FILE_DATE }}
+          path: ${{ github.workspace }}/packages
 
       - name: 生成标签和发布描述
         id: tag
