@@ -46,3 +46,18 @@ else
   echo "错误：$EEPROM_FILE 不存在，无法创建符号链接"
   exit 1
 fi
+
+echo ">>> 强制启用 kmod-nf-ipvs 模块"
+
+cat <<EOF >> .config
+CONFIG_PACKAGE_kmod-nf-ipvs=y
+CONFIG_PACKAGE_kmod-ipvs=y
+CONFIG_PACKAGE_kmod-ipvs-core=y
+CONFIG_PACKAGE_kmod-ipvs-rr=y
+CONFIG_PACKAGE_kmod-ipvs-wrr=y
+CONFIG_PACKAGE_kmod-ipvs-sh=y
+EOF
+
+make defconfig
+
+echo ">>> 已执行 make defconfig，确保模块依赖被解析"

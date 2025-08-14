@@ -110,23 +110,23 @@ jobs:
           response=$(curl -s -f -H "Accept: application/vnd.github.v3+json" "$LATEST_URL")
           LATEST_SHA=$(echo "$response" | jq -r '.sha' || echo "")
           LATEST_COMMIT_MESSAGE=$(echo "$response" | jq -r '.commit.message' || echo "")
-      
+
           if [ -z "$LATEST_SHA" ] || [ "$LATEST_SHA" = "null" ]; then
             echo "无法获取最新 SHA，跳过编译"
             echo "should_build=false" >> $GITHUB_OUTPUT
           else
             echo "源仓库最新提交 sha: $LATEST_SHA"
             echo "LATEST_SHA=$LATEST_SHA" >> $GITHUB_ENV # Keep this for environment variable
-      
+
             LAST_CHECKED_FILE="last_checked_sha.txt"
             LAST_CHECKED_SHA=$(cat "$LAST_CHECKED_FILE" 2>/dev/null || echo "")
-      
+
             if [ -n "$LAST_CHECKED_SHA" ]; then
                 echo "缓存中找到上次检查的 SHA： $LAST_CHECKED_SHA"
             else
                 echo "缓存中未找到上次检查的 SHA"
             fi
-      
+
             if [ "$LATEST_SHA" != "$LAST_CHECKED_SHA" ]; then
               echo "检测到源仓库更新：$LATEST_SHA"
               echo "should_build=true" >> $GITHUB_OUTPUT
@@ -379,6 +379,11 @@ jobs:
           echo "status=success" >> $GITHUB_OUTPUT
           echo "DEVICE_NAME=_${{ matrix.device_model }}" >> $GITHUB_ENV
           echo "FILE_DATE=_$(date +"%Y%m%d%H%M")" >> $GITHUB_ENV
+
+      - name: 验证 kmod-nf-ipvs 是否启用
+        run: |
+          grep nf-ipvs openwrt/.config || echo "未启用 kmod-nf-ipvs"
+          find openwrt/bin/targets -name '*nf-ipvs*.ipk' || echo "未生成 kmod-nf-ipvs 包"
 
       - name: 上传编译日志
         if: failure()
