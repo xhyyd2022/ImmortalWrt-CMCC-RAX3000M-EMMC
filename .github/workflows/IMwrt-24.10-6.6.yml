@@ -46,6 +46,7 @@ on:
         type: choice
         options:
           - '24.10-6.6.config'
+          - '24.10-6.6-office.config'
       istore:
         description: '集成iStore商店'
         type: boolean
