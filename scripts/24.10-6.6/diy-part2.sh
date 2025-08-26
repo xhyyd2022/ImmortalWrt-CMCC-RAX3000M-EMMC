@@ -20,13 +20,6 @@ else
   echo "警告：$CONFIG_FILE 不存在，跳过 IP 修改"
 fi
 
-# 预装
-# OpenClash
-echo "CONFIG_PACKAGE_luci-app-openclash=y" >> .config
-# 微信推送
-echo "CONFIG_PACKAGE_luci-app-wechatpush=y" >> .config
-echo "CONFIG_PACKAGE_luci-i18n-wechatpush-zh-cn=y" >> .config
-
 # 删除 package/mtk/drivers/mt_wifi/files/mt7981-default-eeprom/e2p
 rm -f package/mtk/drivers/mt_wifi/files/mt7981-default-eeprom/e2p
 if [ $? -eq 0 ]; then
@@ -46,28 +39,3 @@ else
   echo "错误：$EEPROM_FILE 不存在，无法创建符号链接"
   exit 1
 fi
-
-echo ">>> 启用 keepalived和kmod-nf-ipvs 模块"
-cat <<EOF >> .config
-CONFIG_PACKAGE_keepalived=y
-CONFIG_PACKAGE_libnl-genl200=y
-CONFIG_PACKAGE_libmagic=y
-CONFIG_PACKAGE_kmod-macvlan=y
-CONFIG_PACKAGE_libnl-route200=y
-CONFIG_PACKAGE_libnfnetlink0=y
-CONFIG_PACKAGE_libip4tc2=y
-CONFIG_PACKAGE_libip6tc2=y
-CONFIG_PACKAGE_libxtables12=y
-CONFIG_PACKAGE_libipset13=y
-CONFIG_PACKAGE_keepalived-sync=y
-CONFIG_PACKAGE_kmod-nf-ipvs=y
-CONFIG_PACKAGE_kmod-ipvs=y
-CONFIG_PACKAGE_kmod-ipvs-core=y
-CONFIG_PACKAGE_kmod-ipvs-rr=y
-CONFIG_PACKAGE_kmod-ipvs-wrr=y
-CONFIG_PACKAGE_kmod-ipvs-sh=y
-EOF
-
-make defconfig
-
-echo ">>> 已执行 make defconfig，确保模块依赖被解析"

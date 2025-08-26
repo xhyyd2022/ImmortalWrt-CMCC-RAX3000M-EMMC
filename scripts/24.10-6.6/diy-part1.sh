@@ -8,18 +8,3 @@
 # https://github.com/P3TERX/Actions-OpenWrt
 # 文件名: diy-part1.sh
 # 描述: OpenWrt DIY 脚本第一部分 (更新 feeds 之前)
-
-
-echo ">>> 注入 IPVS 内核配置"
-
-CONFIG_PATH="target/linux/mediatek/filogic/config-6.6"
-
-cat <<EOF >> "$CONFIG_PATH"
-CONFIG_IP_VS=y
-CONFIG_IP_VS_PROTO_TCP=y
-CONFIG_IP_VS_PROTO_UDP=y
-CONFIG_IP_VS_RR=y
-CONFIG_IP_VS_NFCT=y
-EOF
-
-echo ">>> IPVS 内核配置已注入到 $CONFIG_PATH"

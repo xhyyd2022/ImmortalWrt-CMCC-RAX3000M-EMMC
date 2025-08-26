@@ -32,9 +32,6 @@
       cd ImmortalWrt-CMCC-RAX3000M-EMMC.git
       git push --mirror <新空仓库地址>
       ```
-
-
-
 ### 4. 下载固件
 - **GitHub Release**：在仓库的 **Releases** 页面查下载 `sysupgrade.bin`固件。
 
@@ -42,6 +39,15 @@
 - 确认设备型号与固件匹配。
 - 备份设备原有固件。
 - 使用 `系统-备份与升级-刷写新的固件` 或  `U-Boot`刷入 `sysupgrade.bin` 文件。
+
+### 6. 测试功能
+- luci-app-keepalived-ha (主从路由管理)
+  - 代码：https://github.com/PlanetEditorX/luci-app-build/tree/main/luci-app-keepalived-ha
+  - 功能：仅界面端，方便简化配置keepalived
+  - 介绍：在主从路由分别安装好keepalived后，自主编译ipk，或运行一键部署脚本，配置好主从路由信息和虚拟IP地址，将局域网需要的设备打上标签，并在接口`lan`的`DHCP服务器`-`高级设置`中配置`DHCP选项`:`tag:proxy,3,192.168.1.5`和`tag:proxy,6,192.168.1.5`。
+  - 正常情况：主路由仅做管理，从路由绑定虚拟IP，标签设备的流量指向从路由
+  - 故障情况：从路由9090端口打开失败，或从路由无法被Ping通，主路由接管虚拟IP，标签设备的流量指向主路由
+  - 适用场景：主路由如`CMCC RAX3000M EMMC`性能一般，主要负责拨号和管理，在性能较好的从路由上进行相应的流量处理，不影响局域网的其它普通设备上网。仅当从路由失联后，主路由才会接管对应流量，作为后备处理，从路由恢复后又释放虚拟IP，让所有标签流量走从路由
 
 ## 源码
 - 源码仓库：[immortalwrt-mt798x-24.10](https://github.com/padavanonly/immortalwrt-mt798x-24.10)
