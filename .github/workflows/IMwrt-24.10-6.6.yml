@@ -57,11 +57,11 @@ on:
         type: boolean
         required: true
         default: false
-      # istore:
-      #   description: '集成iStore商店'
-      #   type: boolean
-      #   required: true
-      #   default: false
+       istore:
+         description: '集成iStore商店'
+         type: boolean
+         required: true
+         default: false
       # enable_openclash:
       #   description: '集成openclash'
       #   type: boolean
