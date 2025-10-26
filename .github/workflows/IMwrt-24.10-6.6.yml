@@ -57,7 +57,7 @@ on:
         type: boolean
         required: true
         default: false
-       istore:
+      istore:
          description: '集成iStore商店'
          type: boolean
          required: true
