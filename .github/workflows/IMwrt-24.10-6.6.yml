@@ -261,6 +261,33 @@ jobs:
           sudo mkdir -p /workdir
           sudo chown $USER:$GROUPS /workdir
 
+      - name: 清理磁盘空间
+        run: |
+          echo ">>> 清理预装软件（dotnet/android/haskell/CodeQL）"
+          sudo rm -rf /usr/share/dotnet
+          sudo rm -rf /usr/local/lib/android
+          sudo rm -rf /opt/ghc
+          sudo rm -rf /opt/hostedtoolcache/CodeQL
+
+          echo ">>> 清理 Docker（可释放 3–6GB）"
+          sudo systemctl stop docker || true
+          sudo rm -rf /var/lib/docker
+
+          echo ">>> 清理 APT 缓存"
+          sudo apt-get clean
+          sudo apt-get autoremove -y
+
+          echo ">>> 清理 Actions 自带的大文件"
+          sudo rm -rf /usr/local/share/powershell
+          sudo rm -rf /usr/local/share/chromium
+          sudo rm -rf /usr/local/share/edge
+
+          echo ">>> 清理日志"
+          sudo rm -rf /var/log/*
+
+          echo ">>> 当前磁盘空间"
+          df -hT
+
       - name: 配置 ccache
         run: |
           echo "export PATH=/usr/lib/ccache:$PATH" >> $GITHUB_ENV
