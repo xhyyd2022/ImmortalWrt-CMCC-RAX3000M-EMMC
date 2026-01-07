@@ -427,6 +427,11 @@ jobs:
           # 解析配置
           make defconfig
 
+          echo ">>> 清理所有 Ruby 相关项（防止被其它包拉起）"
+          grep -v "ruby" .config > .config.clean
+          mv .config.clean .config
+          make defconfig
+
       - name: 下载软件包
         id: package
         timeout-minutes: 30
