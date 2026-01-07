@@ -44,28 +44,34 @@ fi
 
 # 兼容cmcc rax3000m 和 cmcc rax3000m-emmc（当前目录是 openwrt/）
 echo "当前工作目录: $(pwd)"
-echo "准备修改 SUPPORTED_DEVICES 兼容 cmcc,rax3000m"
-
 FILE="target/linux/mediatek/image/filogic.mk"
 
-# 检查文件是否存在
 if [ -f "$FILE" ]; then
   echo "找到文件: $FILE"
-  echo "----- 修改前内容（grep）-----"
-  grep -n "SUPPORTED_DEVICES" "$FILE" || echo "未找到 SUPPORTED_DEVICES 字段"
 
-  # 执行替换
+  echo "----- 修改前 SUPPORTED_DEVICES -----"
+  grep -n "SUPPORTED_DEVICES" "$FILE"
+
+  # 兼容 cmcc,rax3000m
   sed -i 's/SUPPORTED_DEVICES += cmcc,rax3000m-emmc/SUPPORTED_DEVICES += cmcc,rax3000m cmcc,rax3000m-emmc/' "$FILE"
 
-  echo "----- 修改后内容（grep）-----"
-  grep -n "SUPPORTED_DEVICES" "$FILE" || echo "未找到 SUPPORTED_DEVICES 字段"
+  echo "----- 修改后 SUPPORTED_DEVICES -----"
+  grep -n "SUPPORTED_DEVICES" "$FILE"
 
-  echo "已成功修改 SUPPORTED_DEVICES，兼容 cmcc,rax3000m"
+  echo "----- 修改 sysupgrade 格式为 FIT (.itb) -----"
+
+  # 删除旧的 sysupgrade.bin 定义
+  sed -i '/IMAGE\/sysupgrade.bin/d' "$FILE"
+
+  # 添加新的 sysupgrade.itb 定义
+  sed -i '/define Device\/cmcc_rax3000m-emmc-mtk/a\  IMAGE\/sysupgrade.itb := fit-image' "$FILE"
+
+  echo "----- 修改后 sysupgrade 定义 -----"
+  grep -n "sysupgrade" "$FILE"
+
+  echo "已成功将 sysupgrade 格式改为 .itb（FIT）"
 else
   echo "❌ 未找到文件: $FILE"
-  echo "请检查："
-  echo "  1. diy-part2.sh 是否在 openwrt/ 目录下执行"
-  echo "  2. filogic.mk 路径是否正确"
 fi
 
 echo "===== diy-part2.sh 执行结束 ====="
