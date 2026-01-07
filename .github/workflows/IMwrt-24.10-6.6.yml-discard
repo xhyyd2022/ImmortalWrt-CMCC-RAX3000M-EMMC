@@ -12,7 +12,7 @@ on:
         type: choice
         required: true
         options:
-          - cmcc_rax3000m-emmc-mtk
+          - cmcc_rax3000m-emmc
       enable_5g_25db:
         description: '启用 5G 25dB 修改'
         type: boolean
@@ -23,11 +23,6 @@ on:
         type: boolean
         required: true
         default: true
-      upload_packages_dir:
-        description: '上传 packages 目录'
-        type: boolean
-        required: true
-        default: false
       repo_url:
         description: '源仓库 URL'
         default: 'https://github.com/padavanonly/immortalwrt-mt798x-24.10'
@@ -46,35 +41,19 @@ on:
         type: choice
         options:
           - '24.10-6.6.config'
-          - '24.10-6.6-office.config'
-      enable_keepalived:
-        description: '集成keepalived'
+      istore:
+        description: '集成iStore商店'
         type: boolean
         required: true
-        default: true
+        default: false
       ssh:
         description: 'SSH connection to Actions'
         type: boolean
         required: true
         default: false
-      # istore:
-      #   description: '集成iStore商店'
-      #   type: boolean
-      #   required: true
-      #   default: false
-      # enable_openclash:
-      #   description: '集成openclash'
-      #   type: boolean
-      #   required: true
-      #   default: true
-      # enable_wechatpush:
-      #   description: '集成wechatpush'
-      #   type: boolean
-      #   required: true
-      #   default: true
 
   schedule:
-    - cron: '0 6 * * 1'
+    - cron: '0 4 * * *'  # 北京时间每天12:00
 
 permissions:
   contents: write
@@ -84,7 +63,7 @@ env:
   REPO_URL: ${{ github.event.inputs.repo_url || 'https://github.com/padavanonly/immortalwrt-mt798x-24.10' }}
   REPO_BRANCH: ${{ github.event.inputs.repo_branch || 'openwrt-24.10-6.6' }}
   FEEDS_CONF: feeds.conf.default
-  CONFIG_FILE: ${{ github.event.inputs.config_file || '24.10-6.6.config' }}
+  CONFIG_FILE:  ${{ github.event.inputs.config_file || '24.10-6.6.config' }}
   DIY_P1_SH: scripts/24.10-6.6/diy-part1.sh
   DIY_P2_SH: scripts/24.10-6.6/diy-part2.sh
   UPLOAD_FIRMWARE: true
@@ -92,11 +71,6 @@ env:
   TZ: Asia/Shanghai
   ENABLE_5G_25DB: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.enable_5g_25db || secrets.ENABLE_5G_25DB || 'true' }}
   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN  }}
-  BUILD_COMMIT_MSGS_FILE: ''
-  CHECKED_COMMIT_MSGS_FILE: ''
-  ENABLE_KEEPALIVED: ${{ github.event.inputs.enable_keepalived || 'true' }}
-  ENABLE_OPENCLASH: ${{ github.event.inputs.enable_openclash || 'true' }}
-  ENABLE_WECHATPUSH: ${{ github.event.inputs.enable_wechatpush || 'true' }}
 
 jobs:
   check-source-updates:
@@ -108,6 +82,11 @@ jobs:
       - name: 检出本仓库代码
         uses: actions/checkout@v4
 
+      - name: 安装 GitHub CLI
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gh
+
       - name: 设置 REPO_PATH
         run: echo "REPO_PATH=$(echo $REPO_URL | sed -E 's#https://github.com/##;s#/$##')" >> $GITHUB_ENV
 
@@ -118,14 +97,8 @@ jobs:
           path: last_checked_sha.txt
           key: ${{ env.REPO_PATH }}-${{ env.REPO_BRANCH }}-last-checked-sha
 
-      - name: 安装 GitHub CLI
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y gh
-
       - name: 检查源仓库更新
         id: check
-        continue-on-error: true
         run: |
           echo $REPO_PATH
           echo $REPO_BRANCH
@@ -135,36 +108,33 @@ jobs:
           response=$(curl -s -f -H "Accept: application/vnd.github.v3+json" "$LATEST_URL")
           LATEST_SHA=$(echo "$response" | jq -r '.sha' || echo "")
           LATEST_COMMIT_MESSAGE=$(echo "$response" | jq -r '.commit.message' || echo "")
-
           if [ -z "$LATEST_SHA" ] || [ "$LATEST_SHA" = "null" ]; then
             echo "无法获取最新 SHA，跳过编译"
             echo "should_build=false" >> $GITHUB_OUTPUT
-          else
-            echo "源仓库最新提交 sha: $LATEST_SHA"
-            echo "LATEST_SHA=$LATEST_SHA" >> $GITHUB_ENV # Keep this for environment variable
-
-            LAST_CHECKED_FILE="last_checked_sha.txt"
-            LAST_CHECKED_SHA=$(cat "$LAST_CHECKED_FILE" 2>/dev/null || echo "")
-
-            if [ -n "$LAST_CHECKED_SHA" ]; then
-                echo "缓存中找到上次检查的 SHA： $LAST_CHECKED_SHA"
-            else
-                echo "缓存中未找到上次检查的 SHA"
-            fi
-
-            if [ "$LATEST_SHA" != "$LAST_CHECKED_SHA" ]; then
-              echo "检测到源仓库更新：$LATEST_SHA"
-              echo "should_build=true" >> $GITHUB_OUTPUT
-              echo "$LATEST_SHA" > "$LAST_CHECKED_FILE"
-              echo "LATEST_COMMIT_MESSAGE<<EOF" >> $GITHUB_OUTPUT
-              echo "$LATEST_COMMIT_MESSAGE" >> $GITHUB_OUTPUT
-              echo "EOF" >> $GITHUB_OUTPUT
-              echo "最新提交信息: $LATEST_COMMIT_MESSAGE" # For logging
-            else
-              echo "源仓库无更新，跳过编译"
-              echo "should_build=false" >> $GITHUB_OUTPUT
-            fi
+            echo "LATEST_COMMIT_MESSAGE=" >> $GITHUB_OUTPUT
           fi
+          echo "源仓库最新提交 sha: $LATEST_SHA"
+          echo "LATEST_SHA=$LATEST_SHA" >> $GITHUB_ENV
+
+          LAST_CHECKED_FILE="last_checked_sha.txt"
+          LAST_CHECKED_SHA=$(cat "$LAST_CHECKED_FILE" 2>/dev/null || echo "")
+          if [ "$LATEST_SHA" != "$LAST_CHECKED_SHA" ]; then
+            echo "检测到源仓库更新：$LATEST_SHA"
+            echo "should_build=true" >> $GITHUB_OUTPUT
+            echo "$LATEST_SHA" > "$LAST_CHECKED_FILE"
+            echo "LATEST_COMMIT_MESSAGE=$LATEST_COMMIT_MESSAGE" >> $GITHUB_OUTPUT
+            echo "最新提交信息: $LATEST_COMMIT_MESSAGE" # For logging
+          else
+            echo "源仓库无更新，跳过编译"
+            echo "should_build=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: 保存 last_checked_sha 缓存
+        if: steps.check.outputs.should_build == 'true'
+        uses: actions/cache@v4
+        with:
+          path: last_checked_sha.txt
+          key: ${{ env.REPO_PATH }}-${{ env.REPO_BRANCH }}-last-checked-sha
 
   build:
     needs: check-source-updates
@@ -173,7 +143,7 @@ jobs:
     name: 编译 ${{ matrix.device_model }}
     strategy:
       matrix:
-        device_model: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.device_model && fromJSON(format('["{0}"]', github.event.inputs.device_model)) || fromJSON('["cmcc_rax3000m-emmc-mtk"]') }}
+        device_model: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.device_model && fromJSON(format('["{0}"]', github.event.inputs.device_model)) || fromJSON('["cmcc_rax3000m-emmc"]') }}
       max-parallel: 18
     steps:
       - name: 调试信息
@@ -183,56 +153,31 @@ jobs:
           echo "设备型号: ${{ matrix.device_model }}"
           echo "5G 25dB: ${{ env.ENABLE_5G_25DB }}"
           echo "上传 bin 目录: ${{ github.event.inputs.upload_bin_dir }}"
-          echo "上传 packages 目录: ${{ github.event.inputs.upload_packages_dir }}"
 
       - name: 检出代码
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 0  # 获取完整的提交历史
-
-      - name: 输出最近的 5 条提交日志
-        run: git log -n 5
-
-      - name: 设置 REPO_PATH
-        run: echo "REPO_PATH=$(echo $REPO_URL | sed -E 's#https://github.com/##;s#/$##')" >> $GITHUB_ENV
-
-      - name: 获取上次提交sha缓存
-        uses: actions/cache@v4
-        with:
-          path: last_build_sha.txt
-          key: ${{ env.REPO_PATH }}-${{ env.REPO_BRANCH }}-last-build-sha
-
-      - name: 获取 last_checked_sha 缓存
-        uses: actions/cache@v4
-        with:
-          path: last_checked_sha.txt
-          key: ${{ env.REPO_PATH }}-${{ env.REPO_BRANCH }}-last-checked-sha
 
       - name: 设置最新提交信息
+        id: set_latest_commit_message
         run: |
-          if [ -f last_build_sha.txt ]; then
-            LAST_BUILD_SHA=$(cat last_build_sha.txt)
-            echo "读取到上次提交 SHA: $LAST_BUILD_SHA"
+          COMMIT_MSG=""
+          # 如果是推送触发
+          if [ "${{ github.event_name }}" = "push" ]; then
+            echo "推送触发编译，使用本仓库最新提交信息。"
+            COMMIT_MSG=$(git log --pretty=format:"%s" -n 5)
+          elif [ "${{ github.event_name }}" = "schedule" ] && [ "${{ needs.check-source-updates.outputs.should_build }}" = "true" ]; then
+            # 如果是定时触发 (schedule)（远程源仓库有更新）
+            COMMIT_MSG="${{ needs.check-source-updates.outputs.latest_commit_message }}"
+            echo "检测到源仓库更新，使用远程仓库最新提交信息。"
           else
-            LAST_BUILD_SHA=""
-            echo "last_build_sha.txt 文件不存在，无法获取上次提交 SHA"
+            # 如果是手动触发 (workflow_dispatch)，或者没有明确的更新信息
+            COMMIT_MSG=""
+            echo "未能确定更新内容，更新内容为空。"
           fi
 
-          if [ -z "$LAST_BUILD_SHA" ]; then
-            echo "LAST_BUILD_SHA 为空，无法获取上次提交信息"
-          else
-            # 生成临时文件
-            TEMP_FILE=$(mktemp)
-            # 从上次提交 SHA 到当前 HEAD 的提交信息
-            git log $LAST_BUILD_SHA..HEAD --pretty=format:"%s" | awk '!a[$0]++' | sed 's/^/- /' > "$TEMP_FILE"
-            echo "BUILD_COMMIT_MSGS_FILE=$TEMP_FILE" >> $GITHUB_ENV
-          fi
-          if [ -z "$TEMP_FILE" ]; then
-            echo "本仓库无更新"
-          else
-            echo "本仓库更新信息:"
-            cat $TEMP_FILE
-          fi
+          # 设置步骤输出
+          echo "LATEST_COMMIT_MESSAGE=$COMMIT_MSG" >> $GITHUB_ENV
+          echo "最终使用的提交信息: $COMMIT_MSG"
 
       - name: 检查磁盘空间
         run: |
@@ -260,33 +205,6 @@ jobs:
           sudo timedatectl set-timezone "$TZ"
           sudo mkdir -p /workdir
           sudo chown $USER:$GROUPS /workdir
-
-      - name: 清理磁盘空间
-        run: |
-          echo ">>> 清理预装软件（dotnet/android/haskell/CodeQL）"
-          sudo rm -rf /usr/share/dotnet
-          sudo rm -rf /usr/local/lib/android
-          sudo rm -rf /opt/ghc
-          sudo rm -rf /opt/hostedtoolcache/CodeQL
-
-          echo ">>> 清理 Docker（可释放 3–6GB）"
-          sudo systemctl stop docker || true
-          sudo rm -rf /var/lib/docker
-
-          echo ">>> 清理 APT 缓存"
-          sudo apt-get clean
-          sudo apt-get autoremove -y
-
-          echo ">>> 清理 Actions 自带的大文件"
-          sudo rm -rf /usr/local/share/powershell
-          sudo rm -rf /usr/local/share/chromium
-          sudo rm -rf /usr/local/share/edge
-
-          echo ">>> 清理日志"
-          sudo rm -rf /var/log/*
-
-          echo ">>> 当前磁盘空间"
-          df -hT
 
       - name: 配置 ccache
         run: |
@@ -316,41 +234,6 @@ jobs:
           fi
           ln -sf /workdir/openwrt $GITHUB_WORKSPACE/openwrt
 
-      - name: 获取源码提交 SHA
-        run: |
-          if [ -f last_checked_sha.txt ]; then
-            LAST_CHECKED_SHA=$(cat last_checked_sha.txt)
-            echo "读取到上次提交 SHA: $LAST_CHECKED_SHA"
-          else
-            LAST_CHECKED_SHA=""
-            echo "last_checked_sha.txt 文件不存在，无法获取上次提交 SHA"
-          fi
-          cd /workdir/openwrt
-          if [ -z "$LAST_CHECKED_SHA" ]; then
-            echo "LAST_CHECKED_SHA 为空，无法获取上次提交信息"
-          else
-            # 生成临时文件
-            TEMP_FILE=$(mktemp)
-            # 从上次提交 SHA 到当前 HEAD 的提交信息
-            git log $LAST_CHECKED_SHA..HEAD --pretty=format:"%s" | awk '!a[$0]++' | sed 's/^/- /' > "$TEMP_FILE"
-            echo "CHECKED_COMMIT_MSGS_FILE=$TEMP_FILE" >> $GITHUB_ENV
-          fi
-          if [ -z "$TEMP_FILE" ]; then
-            echo "源仓库无更新"
-          else
-            echo "源仓库更新信息:"
-            cat $TEMP_FILE
-          fi
-          echo "输出源仓库最近的 5 条提交日志"
-          git log -n 5
-          echo "存入源仓库最新提交信息到文件"
-          echo "$(git rev-parse HEAD)" > /workdir/last_checked_sha.txt
-
-      - name: 移动last_checked_sha到根目录
-        run: |
-          mv /workdir/last_checked_sha.txt ./last_checked_sha.txt
-          cat last_checked_sha.txt
-
       - name: 加载 Feeds
         timeout-minutes: 10
         run: |
@@ -363,15 +246,8 @@ jobs:
         timeout-minutes: 30
         run: |
           cd openwrt
-          ./scripts/feeds update -a || { echo "❌ 更新 Feeds 失败"; exit 1; }
-          ./scripts/feeds install -a || { echo "❌ 安装 Feeds 失败"; exit 1; }
-
-      - name: 添加 luci-app-keepalived-ha 插件
-        if: env.ENABLE_KEEPALIVED == 'true'
-        run: |
-          git clone --depth=1 https://github.com/PlanetEditorX/luci-app-build.git
-          mkdir -p openwrt/package/luci-app-keepalived-ha
-          cp -r luci-app-build/luci-app-keepalived-ha/* openwrt/package/luci-app-keepalived-ha/
+          ./scripts/feeds update -a || { echo "更新 Feeds 失败"; exit 1; }
+          ./scripts/feeds install -a || { echo "安装 Feeds 失败"; exit 1; }
 
       - name: 安装iStore商店
         if: (github.event.inputs.istore == 'true')
@@ -387,38 +263,9 @@ jobs:
           [ -e files ] && mv files openwrt/files
           [ -e config/$CONFIG_FILE ] && mv config/$CONFIG_FILE openwrt/.config
           echo "CONFIG_TARGET_mediatek_filogic_DEVICE_${{ matrix.device_model }}=y" >> openwrt/.config
-          echo "CONFIG_CCACHE=y" >> openwrt/.config
           chmod +x $DIY_P2_SH
           cd openwrt
           $GITHUB_WORKSPACE/$DIY_P2_SH
-          make defconfig
-
-      - name: 启用 keepalived 和 IPVS
-        if: env.ENABLE_KEEPALIVED == 'true'
-        run: |
-          cd openwrt
-          echo ">>> 注入 keepalived.config 中的配置项..."
-          CONFIG_FILE="$GITHUB_WORKSPACE/config/keepalived.config"
-          if [ ! -f "$CONFIG_FILE" ]; then
-            echo "❌ 未找到配置文件: $CONFIG_FILE"
-            exit 1
-          fi
-          # 去重注入配置项
-          while IFS= read -r line; do
-            # 跳过空行和注释
-            [[ -z "$line" || "$line" =~ ^# ]] && continue
-            # 提取配置项
-            opt=$(echo "$line" | cut -d= -f1)
-            val=$(echo "$line" | cut -d= -f2)
-            # 移除旧项再追加新项
-            sed -i "/^$opt=/d" .config
-            echo "$opt=$val" >> .config
-          done < "$CONFIG_FILE"
-          echo ">>> 执行 make defconfig，解析依赖关系"
-          # 更新 feeds
-          ./scripts/feeds update -a
-          ./scripts/feeds install -a
-          # 解析配置
           make defconfig
 
       - name: 下载软件包
@@ -426,7 +273,7 @@ jobs:
         timeout-minutes: 30
         run: |
           cd openwrt
-          make download -j$(nproc) || { echo "❌ 下载软件包失败"; exit 1; }
+          make download -j8 || { echo "下载软件包失败"; exit 1; }
           find dl -size -1024c -exec rm -f {} \;
 
       - name: 修改 5G 25dB
@@ -458,29 +305,9 @@ jobs:
           name: OpenWrt_config
           path: openwrt/config
 
-      - name: 初始化配置并下载依赖包
-        timeout-minutes: 60
-        run: |
-          cd openwrt
-          make download -j$(nproc) V=s || { echo "❌ 下载依赖包失败"; exit 1; }
-
-      - name: 添加 OpenClash 和 微信推送
-        run: |
-          cd openwrt
-          if [ "$ENABLE_OPENCLASH" = "true" ]; then
-            echo "CONFIG_PACKAGE_luci-app-openclash=y" >> .config
-          fi
-          if [ "$ENABLE_WECHATPUSH" = "true" ]; then
-            echo ">>> 注入微信推送配置项..."
-            echo "CONFIG_PACKAGE_jq=y" >> .config
-            echo "CONFIG_PACKAGE_luci-app-wechatpush=y" >> .config
-            echo "CONFIG_PACKAGE_luci-i18n-wechatpush-zh-cn=y" >> .config
-            echo ">>> 执行 make defconfig，解析依赖关系"
-          fi
-          make defconfig
-
       - name: 编译固件
         id: compile
+        timeout-minutes: 180
         run: |
           set -e
           cd openwrt
@@ -521,10 +348,7 @@ jobs:
         run: |
           set -e
           cd openwrt/bin/targets/*/*
-
-          rm -rf ${{ github.workspace }}/packages
-          mv packages ${{ github.workspace }} || true
-
+          rm -rf packages
           ls -la
           if [ "$ENABLE_5G_25DB" = "true" ]; then
             DB25="on"
@@ -550,13 +374,6 @@ jobs:
           name: OpenWrt_bin${{ env.DEVICE_NAME }}${{ env.FILE_DATE }}
           path: openwrt/bin
 
-      - name: 上传 packages
-        uses: actions/upload-artifact@v4
-        if: steps.compile.outputs.status == 'success' && github.event_name == 'workflow_dispatch' && github.event.inputs.upload_packages_dir == 'true'
-        with:
-          name: OpenWrt_packages${{ env.DEVICE_NAME }}${{ env.FILE_DATE }}
-          path: ${{ github.workspace }}/packages
-
       - name: 生成标签和发布描述
         id: tag
         if: env.UPLOAD_RELEASE == 'true' && steps.compile.outputs.status == 'success'
@@ -574,7 +391,6 @@ jobs:
 
           # 生成发布说明
           {
-            echo "## 默认配置"
             echo "固件版本: ImmortalWrt ${{ env.FIRMWARE_VERSION }}"
             echo "设备型号: ${{ matrix.device_model }}"
             echo "编译时间: $(date +'%Y-%m-%d %H:%M %Z')"
@@ -584,24 +400,12 @@ jobs:
             echo "源仓库分支: $REPO_BRANCH"
             echo "配置文件: $CONFIG_FILE"
             echo "触发方式: $EVENT_TRIGGER_METHOD"
-            if [ -s "$BUILD_COMMIT_MSGS_FILE" ] || [ -s "$CHECKED_COMMIT_MSGS_FILE" ]; then
-              echo -e "\n## 更新内容"
-
-              # 本仓库输出
-              if [ -s "$BUILD_COMMIT_MSGS_FILE" ]; then
-                [ -s "$CHECKED_COMMIT_MSGS_FILE" ] && echo "### 本仓库更新"
-                cat "$BUILD_COMMIT_MSGS_FILE"
-              fi
-
-              # 源仓库输出
-              if [ -s "$CHECKED_COMMIT_MSGS_FILE" ]; then
-                  [ -s "$BUILD_COMMIT_MSGS_FILE" ] && echo "### 源仓库更新"
-                  cat "$CHECKED_COMMIT_MSGS_FILE"
-              fi
+            if [ -n "$LATEST_COMMIT_MESSAGE" ]; then
+              echo -e "\n### 更新内容\n- $LATEST_COMMIT_MESSAGE"
             fi
-            echo -e "\n## 验证固件"
+            echo -e "\n### 验证固件"
             echo -e "\n- 未验证"
-          } > release
+          } > release.txt
 
           echo "status=success" >> $GITHUB_OUTPUT
 
@@ -612,17 +416,17 @@ jobs:
           ls -la ${{ env.FIRMWARE }} || echo "输出目录不存在: ${{ env.FIRMWARE }}"
 
       - name: 删除同名 tag（如已存在）
-        continue-on-error: true
         run: |
           git push --delete origin $RELEASE_TAG || true
           git tag -d $RELEASE_TAG || true
+        continue-on-error: true
 
-      - name: 检查 release
+      - name: 检查 release.txt
         run: |
-          ls -l ${{ github.workspace }}/release
-          cat ${{ github.workspace }}/release
-          if [ ! -s ${{ github.workspace }}/release ]; then
-            echo "错误：release 文件为空或不存在"
+          ls -l ${{ github.workspace }}/release.txt
+          cat ${{ github.workspace }}/release.txt
+          if [ ! -s ${{ github.workspace }}/release.txt ]; then
+            echo "错误：release.txt 文件为空或不存在"
             exit 1
           fi
 
@@ -639,9 +443,10 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           tag_name: ${{ steps.tag.outputs.RELEASE_TAG }}
-          body_path: release
+          body_path: release.txt
           files: |
             ${{ env.FIRMWARE }}/*sysupgrade*.*
+            ${{ env.FIRMWARE }}/*factory*.*
 
       - name: 验证Release创建
         run: |
@@ -652,57 +457,6 @@ jobs:
             exit 1
           fi
           echo "Release 创建成功: $RELEASE_TAG"
-
-      - name: 保存此次提交sha
-        run: |
-          echo "$(git rev-parse HEAD)" > last_build_sha.txt
-
-      - name: 校验缓存文件
-        run: |
-          echo "检查 last_build_sha.txt 文件内容"
-          if [ ! -f last_build_sha.txt ]; then
-            echo "错误：last_build_sha.txt 文件不存在"
-            exit 1
-          else
-            echo "last_build_sha.txt 文件存在"
-            cat last_build_sha.txt
-          fi
-          echo "检查 last_checked_sha.txt 文件内容"
-          if [ ! -f last_checked_sha.txt ]; then
-            echo "错误：last_checked_sha.txt 文件不存在"
-            exit 1
-          else
-            echo "last_checked_sha.txt 文件存在"
-            cat last_checked_sha.txt
-          fi
-
-      - name: 删除指定缓存
-        continue-on-error: true
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          echo "当前的缓存列表"
-          gh cache list
-          gh cache delete "${{ env.REPO_PATH }}-${{ env.REPO_BRANCH }}-last-build-sha" \
-            --repo ${{ github.repository }}
-
-          gh cache delete "${{ env.REPO_PATH }}-${{ env.REPO_BRANCH }}-last-checked-sha" \
-            --repo ${{ github.repository }}
-          echo "删除指定缓存后，当前的缓存列表"
-          sleep 5  # 等待缓存删除完成
-          gh cache list
-
-      - name: 保存此次提交sha缓存
-        uses: actions/cache@v4
-        with:
-          path: last_build_sha.txt
-          key: ${{ env.REPO_PATH }}-${{ env.REPO_BRANCH }}-last-build-sha
-
-      - name: 保存 last_checked_sha 缓存
-        uses: actions/cache@v4
-        with:
-          path: last_checked_sha.txt
-          key: ${{ env.REPO_PATH }}-${{ env.REPO_BRANCH }}-last-checked-sha
 
       - name: 清理旧 Releases
         if: steps.tag.outputs.status == 'success'
@@ -723,15 +477,11 @@ jobs:
                 echo "跳过当前 Release: $RELEASE"
                 continue
               fi
-              gh release delete "$RELEASE" --yes || { echo "❌ 删除 Release $RELEASE 失败"; exit 1; }
+              gh release delete "$RELEASE" --yes || { echo "删除 Release $RELEASE 失败"; exit 1; }
             done
           else
             echo "无需清理旧 Releases"
           fi
-
-      - name: 清理临时文件
-        if: always()  # 确保始终执行
-        run: rm -f ${{ env.BUILD_COMMIT_MSGS_FILE }} ${{ env.CHECKED_COMMIT_MSGS_FILE }}
 
       - name: 清理旧工作流运行
         if: steps.tag.outputs.status == 'success'

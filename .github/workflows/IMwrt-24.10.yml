@@ -1,4 +1,4 @@
-name: IMwrt-24.10-6.6
+name: IMwrt-24.10
 
 on:
   repository_dispatch:
@@ -28,25 +28,29 @@ on:
         type: boolean
         required: true
         default: false
+      upload_all_files:
+        description: '上传所有文件（包括 GPT、preloader、FIP、recovery、sysupgrade）'
+        type: boolean
+        required: true
+        default: false
       repo_url:
         description: '源仓库 URL'
-        default: 'https://github.com/padavanonly/immortalwrt-mt798x-24.10'
+        default: 'https://github.com/immortalwrt/immortalwrt'
         type: choice
         options:
-          - 'https://github.com/padavanonly/immortalwrt-mt798x-24.10'
+          - 'https://github.com/immortalwrt/immortalwrt'
       repo_branch:
         description: '源仓库分支'
-        default: 'openwrt-24.10-6.6'
+        default: 'openwrt-24.10'
         type: choice
         options:
-          - 'openwrt-24.10-6.6'
+          - 'openwrt-24.10'
       config_file:
         description: '配置文件'
-        default: '24.10-6.6.config'
+        default: '24.10.config'
         type: choice
         options:
-          - '24.10-6.6.config'
-          - '24.10-6.6-office.config'
+          - '24.10.config'
       enable_keepalived:
         description: '集成keepalived'
         type: boolean
@@ -81,12 +85,12 @@ permissions:
   actions: write
 
 env:
-  REPO_URL: ${{ github.event.inputs.repo_url || 'https://github.com/padavanonly/immortalwrt-mt798x-24.10' }}
-  REPO_BRANCH: ${{ github.event.inputs.repo_branch || 'openwrt-24.10-6.6' }}
+  REPO_URL: ${{ github.event.inputs.repo_url || 'https://github.com/immortalwrt/immortalwrt' }}
+  REPO_BRANCH: ${{ github.event.inputs.repo_branch || 'openwrt-24.10' }}
   FEEDS_CONF: feeds.conf.default
-  CONFIG_FILE: ${{ github.event.inputs.config_file || '24.10-6.6.config' }}
-  DIY_P1_SH: scripts/24.10-6.6/diy-part1.sh
-  DIY_P2_SH: scripts/24.10-6.6/diy-part2.sh
+  CONFIG_FILE: ${{ github.event.inputs.config_file || '24.10.config' }}
+  DIY_P1_SH: scripts/24.10/diy-part1.sh
+  DIY_P2_SH: scripts/24.10/diy-part2.sh
   UPLOAD_FIRMWARE: true
   UPLOAD_RELEASE: true
   TZ: Asia/Shanghai
@@ -97,6 +101,7 @@ env:
   ENABLE_KEEPALIVED: ${{ github.event.inputs.enable_keepalived || 'true' }}
   ENABLE_OPENCLASH: ${{ github.event.inputs.enable_openclash || 'true' }}
   ENABLE_WECHATPUSH: ${{ github.event.inputs.enable_wechatpush || 'true' }}
+  UPLOAD_ALL_FILES: ${{ github.event.inputs.upload_all_files || 'false' }}
 
 jobs:
   check-source-updates:
@@ -345,6 +350,14 @@ jobs:
           git log -n 5
           echo "存入源仓库最新提交信息到文件"
           echo "$(git rev-parse HEAD)" > /workdir/last_checked_sha.txt
+          # 获取当前源码 SHA
+          CURRENT_SHA=$(git rev-parse HEAD)
+          # 生成 commit URL
+          COMMIT_URL="${REPO_URL}/commit/${CURRENT_SHA}"
+          echo "当前源码提交链接: $COMMIT_URL"
+          # 写入环境变量（供后续步骤使用）
+          echo "SOURCE_COMMIT_URL=$COMMIT_URL" >> $GITHUB_ENV
+
 
       - name: 移动last_checked_sha到根目录
         run: |
@@ -569,12 +582,12 @@ jobs:
           fi
 
           # 生成标签
-          TAG="ImmortalWrt-24.10-6.6-${{ matrix.device_model }}-${{ env.FIRMWARE_VERSION }}"
+          TAG="ImmortalWrt-24.10-${{ matrix.device_model }}-${{ env.FIRMWARE_VERSION }}"
           echo "RELEASE_TAG=$TAG-$(date +%Y%m%d%H%M%S)" | tee -a $GITHUB_OUTPUT >> $GITHUB_ENV
 
           # 生成发布说明
           {
-            echo "## 默认配置"
+            echo "## 📦 固件信息"
             echo "固件版本: ImmortalWrt ${{ env.FIRMWARE_VERSION }}"
             echo "设备型号: ${{ matrix.device_model }}"
             echo "编译时间: $(date +'%Y-%m-%d %H:%M %Z')"
@@ -582,25 +595,27 @@ jobs:
             echo "后台地址: 192.168.2.1 或 http://immortalwrt.lan/"
             echo "源仓库 URL: $REPO_URL"
             echo "源仓库分支: $REPO_BRANCH"
+            echo "源仓库 commit: [查看编译时提交]($SOURCE_COMMIT_URL)"
             echo "配置文件: $CONFIG_FILE"
             echo "触发方式: $EVENT_TRIGGER_METHOD"
             if [ -s "$BUILD_COMMIT_MSGS_FILE" ] || [ -s "$CHECKED_COMMIT_MSGS_FILE" ]; then
-              echo -e "\n## 更新内容"
+              echo -e "\n## 📝 更新内容"
 
               # 本仓库输出
               if [ -s "$BUILD_COMMIT_MSGS_FILE" ]; then
-                [ -s "$CHECKED_COMMIT_MSGS_FILE" ] && echo "### 本仓库更新"
+                [ -s "$CHECKED_COMMIT_MSGS_FILE" ] && echo "### 📌 本仓库更新"
                 cat "$BUILD_COMMIT_MSGS_FILE"
               fi
 
               # 源仓库输出
               if [ -s "$CHECKED_COMMIT_MSGS_FILE" ]; then
-                  [ -s "$BUILD_COMMIT_MSGS_FILE" ] && echo "### 源仓库更新"
+                  [ -s "$BUILD_COMMIT_MSGS_FILE" ] && echo "### 📌 源仓库更新"
                   cat "$CHECKED_COMMIT_MSGS_FILE"
               fi
             fi
             echo -e "\n## 验证固件"
             echo -e "\n- 未验证"
+            echo "" echo "## 🔧 刷机说明" echo "1. 使用 **sysupgrade.itb** 进行升级。" echo "2. 若启用了“上传所有文件”，请谨慎使用 GPT、preloader、FIP 等文件，它们仅用于底层恢复。" echo "3. 如需救砖，可使用 **initramfs-recovery.itb** 从 U-Boot 启动恢复系统。"
           } > release
 
           echo "status=success" >> $GITHUB_OUTPUT
@@ -641,7 +656,7 @@ jobs:
           tag_name: ${{ steps.tag.outputs.RELEASE_TAG }}
           body_path: release
           files: |
-            ${{ env.FIRMWARE }}/*sysupgrade*.*
+            ${{ env.UPLOAD_ALL_FILES == 'true' && format('{0}/*', env.FIRMWARE) || format('{0}/*sysupgrade*.*', env.FIRMWARE) }}
 
       - name: 验证Release创建
         run: |
