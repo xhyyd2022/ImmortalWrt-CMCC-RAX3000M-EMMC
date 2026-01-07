@@ -38,8 +38,7 @@ if [ -f "$EEPROM_FILE" ]; then
   echo "符号链接已创建"
   ls -l files/lib/firmware/e2p || { echo "错误：符号链接创建失败"; exit 1; }
 else
-  echo "错误：$EEPROM_FILE 不存在，无法创建符号链接"
-  exit 1
+  echo "$EEPROM_FILE 不存在，跳过创建符号链接"
 fi
 
 # 兼容cmcc rax3000m 和 cmcc rax3000m-emmc（当前目录是 openwrt/）
