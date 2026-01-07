@@ -7,6 +7,8 @@
 #
 # https://github.com/P3TERX/Actions-OpenWrt
 
+echo "===== diy-part2.sh 开始执行 ====="
+
 # 修改默认 IP
 CONFIG_FILE="package/base-files/files/bin/config_generate"
 if [ -f "$CONFIG_FILE" ]; then
@@ -39,3 +41,31 @@ else
   echo "错误：$EEPROM_FILE 不存在，无法创建符号链接"
   exit 1
 fi
+
+# 兼容cmcc rax3000m 和 cmcc rax3000m-emmc（当前目录是 openwrt/）
+echo "当前工作目录: $(pwd)"
+echo "准备修改 SUPPORTED_DEVICES 兼容 cmcc,rax3000m"
+
+FILE="target/linux/mediatek/image/filogic.mk"
+
+# 检查文件是否存在
+if [ -f "$FILE" ]; then
+  echo "找到文件: $FILE"
+  echo "----- 修改前内容（grep）-----"
+  grep -n "SUPPORTED_DEVICES" "$FILE" || echo "未找到 SUPPORTED_DEVICES 字段"
+
+  # 执行替换
+  sed -i 's/SUPPORTED_DEVICES += cmcc,rax3000m-emmc/SUPPORTED_DEVICES += cmcc,rax3000m cmcc,rax3000m-emmc/' "$FILE"
+
+  echo "----- 修改后内容（grep）-----"
+  grep -n "SUPPORTED_DEVICES" "$FILE" || echo "未找到 SUPPORTED_DEVICES 字段"
+
+  echo "已成功修改 SUPPORTED_DEVICES，兼容 cmcc,rax3000m"
+else
+  echo "❌ 未找到文件: $FILE"
+  echo "请检查："
+  echo "  1. diy-part2.sh 是否在 openwrt/ 目录下执行"
+  echo "  2. filogic.mk 路径是否正确"
+fi
+
+echo "===== diy-part2.sh 执行结束 ====="
