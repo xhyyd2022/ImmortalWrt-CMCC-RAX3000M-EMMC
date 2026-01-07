@@ -13,11 +13,6 @@ on:
         required: true
         options:
           - cmcc_rax3000m
-      enable_5g_25db:
-        description: '启用 5G 25dB 修改'
-        type: boolean
-        required: true
-        default: true
       upload_bin_dir:
         description: '上传 bin 目录'
         type: boolean
@@ -94,7 +89,6 @@ env:
   UPLOAD_FIRMWARE: true
   UPLOAD_RELEASE: true
   TZ: Asia/Shanghai
-  ENABLE_5G_25DB: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.enable_5g_25db || secrets.ENABLE_5G_25DB || 'true' }}
   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN  }}
   BUILD_COMMIT_MSGS_FILE: ''
   CHECKED_COMMIT_MSGS_FILE: ''
@@ -186,7 +180,6 @@ jobs:
           echo "触发方式: ${{ github.event_name }}"
           echo "EVENT_TRIGGER_METHOD=${{ github.event_name }}" >> $GITHUB_ENV
           echo "设备型号: ${{ matrix.device_model }}"
-          echo "5G 25dB: ${{ env.ENABLE_5G_25DB }}"
           echo "上传 bin 目录: ${{ github.event.inputs.upload_bin_dir }}"
           echo "上传 packages 目录: ${{ github.event.inputs.upload_packages_dir }}"
 
@@ -442,24 +435,6 @@ jobs:
           make download -j$(nproc) || { echo "❌ 下载软件包失败"; exit 1; }
           find dl -size -1024c -exec rm -f {} \;
 
-      - name: 修改 5G 25dB
-        if: env.ENABLE_5G_25DB == 'true'
-        working-directory: ./openwrt
-        run: |
-          EEPROM_FILE=$(find package -name MT7981_iPAiLNA_EEPROM.bin 2>/dev/null | head -n 1)
-          if [ -z "$EEPROM_FILE" ]; then
-            echo "未找到 EEPROM 文件，跳过"
-            exit 0
-          fi
-          EXPECTED_CONTENT=$(printf '\x2B\x2B\x2B\x2B\x2B\x2B\x2B\x2B\x2B\x2B\x2B\x2B\x2B\x2B\x2B\x2B\x2B\x2B\x2B\x2B')
-          CURRENT_CONTENT=$(dd if="$EEPROM_FILE" bs=1 skip=$((0x445)) count=20 2>/dev/null || echo "")
-          if [ "$CURRENT_CONTENT" != "$EXPECTED_CONTENT" ]; then
-            printf '\x2B\x2B\x2B\x2B\x2B\x2B\x2B\x2B\x2B\x2B\x2B\x2B\x2B\x2B\x2B\x2B\x2B\x2B\x2B\x2B' | dd of="$EEPROM_FILE" bs=1 seek=$((0x445)) conv=notrunc
-            echo "EEPROM 文件已更新: $EEPROM_FILE"
-          else
-            echo "EEPROM 文件无需修改: $EEPROM_FILE"
-          fi
-
       - name: SSH链接管理
         uses: P3TERX/ssh2actions@v1.0.0
         if: (github.event.inputs.ssh == 'true')
@@ -539,17 +514,13 @@ jobs:
           mv packages ${{ github.workspace }} || true
 
           ls -la
-          if [ "$ENABLE_5G_25DB" = "true" ]; then
-            DB25="on"
-          else
-            DB25="off"
-          fi
+
           DEVICE_MODEL="${{ matrix.device_model }}"
           for file in *sysupgrade* *factory*; do
             if [ -f "$file" ] && ! echo "$file" | grep -q -- "-bl2"; then
               TYPE=$(echo "$file" | grep -o "sysupgrade\|factory")
               EXT="${file##*.}"
-              NEW_NAME="${DEVICE_MODEL}_25dB-${DB25}_${FIRMWARE_VERSION}${FILE_DATE}_${TYPE}.${EXT}"
+              NEW_NAME="${DEVICE_MODEL}_${FIRMWARE_VERSION}${FILE_DATE}_${TYPE}.${EXT}"
               mv "$file" "$NEW_NAME"
             fi
           done
@@ -591,7 +562,6 @@ jobs:
             echo "固件版本: ImmortalWrt ${{ env.FIRMWARE_VERSION }}"
             echo "设备型号: ${{ matrix.device_model }}"
             echo "编译时间: $(date +'%Y-%m-%d %H:%M %Z')"
-            echo "高功率模式: $([ "$ENABLE_5G_25DB" = 'true' ] && echo '已启用' || echo '未启用')"
             echo "后台地址: 192.168.2.1 或 http://immortalwrt.lan/"
             echo "源仓库 URL: $REPO_URL"
             echo "源仓库分支: $REPO_BRANCH"
