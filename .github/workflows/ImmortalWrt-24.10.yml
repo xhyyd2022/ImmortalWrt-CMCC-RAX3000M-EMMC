@@ -292,6 +292,17 @@ jobs:
           echo "export CCACHE_DIR=$HOME/.ccache" >> $GITHUB_ENV
           ccache -M 5G
 
+      - name: 扩容 /tmp 到 4GB
+        run: |
+          echo ">>> 扩容 /tmp（tmpfs）到 4GB，用于避免 Ruby 等大包编译失败"
+          sudo rm -rf /tmp
+          sudo mkdir /tmp
+          sudo mount -t tmpfs -o size=4G tmpfs /tmp
+          echo ">>> /tmp 当前状态："
+          df -hT /tmp
+          echo ">>> 当前磁盘空间"
+          df -hT
+
       - name: 安装 GitHub CLI
         run: |
           sudo apt-get install -y gh
@@ -350,7 +361,6 @@ jobs:
           echo "当前源码提交链接: $COMMIT_URL"
           # 写入环境变量（供后续步骤使用）
           echo "SOURCE_COMMIT_URL=$COMMIT_URL" >> $GITHUB_ENV
-
 
       - name: 移动last_checked_sha到根目录
         run: |
