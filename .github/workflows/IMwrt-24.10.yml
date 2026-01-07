@@ -12,7 +12,7 @@ on:
         type: choice
         required: true
         options:
-          - cmcc_rax3000m-emmc-mtk
+          - cmcc_rax3000m
       enable_5g_25db:
         description: '启用 5G 25dB 修改'
         type: boolean
@@ -178,7 +178,7 @@ jobs:
     name: 编译 ${{ matrix.device_model }}
     strategy:
       matrix:
-        device_model: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.device_model && fromJSON(format('["{0}"]', github.event.inputs.device_model)) || fromJSON('["cmcc_rax3000m-emmc-mtk"]') }}
+        device_model: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.device_model && fromJSON(format('["{0}"]', github.event.inputs.device_model)) || fromJSON('["cmcc_rax3000m"]') }}
       max-parallel: 18
     steps:
       - name: 调试信息
