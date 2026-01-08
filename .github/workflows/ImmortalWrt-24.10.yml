@@ -437,11 +437,6 @@ jobs:
           # 解析配置
           make defconfig
 
-          echo ">>> 清理所有 Ruby 相关项（防止被其它包拉起）"
-          grep -v "ruby" .config > .config.clean
-          mv .config.clean .config
-          make defconfig
-
       - name: 下载软件包
         id: package
         timeout-minutes: 30
@@ -487,6 +482,8 @@ jobs:
           set -e
           cd openwrt
 
+          echo ">>> 提前编译自定义插件"
+
           if [ "$ENABLE_OPENCLASH" = "true" ]; then
             echo ">>> 编译 OpenClash"
             make package/luci-app-openclash/compile -j$(nproc) V=s || { echo "OpenClash 编译失败"; exit 1; }
@@ -502,7 +499,12 @@ jobs:
             make package/luci-app-keepalived-ha/compile -j$(nproc) V=s || { echo "Keepalived-HA 编译失败"; exit 1; }
           fi
 
-          echo ">>> 插件编译完成，当前磁盘空间："
+          if [ "$ENABLE_GITLFS" = "true" ]; then
+            echo ">>> 编译 git-lfs"
+            make package/git-lfs/compile -j$(nproc) V=s || { echo "git-lfs 编译失败"; exit 1; }
+          fi
+
+          echo ">>> 自定义插件编译完成，当前磁盘空间："
           df -hT
 
       - name: 编译固件
