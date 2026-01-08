@@ -466,8 +466,19 @@ jobs:
         run: |
           cd openwrt
           if [ "$ENABLE_OPENCLASH" = "true" ]; then
+            # 必须依赖
             echo "CONFIG_PACKAGE_luci-app-openclash=y" >> .config
+            echo "CONFIG_PACKAGE_ruby=y" >> .config
+            echo "CONFIG_PACKAGE_ruby-yaml=y" >> .config
+            echo "CONFIG_PACKAGE_kmod-tun=y" >> .config
+
+            # 推荐依赖
+            echo "CONFIG_PACKAGE_bash=y" >> .config
+            echo "CONFIG_PACKAGE_curl=y" >> .config
+            echo "CONFIG_PACKAGE_libcap=y" >> .config
+            echo "CONFIG_PACKAGE_libpcap=y" >> .config
           fi
+
           if [ "$ENABLE_WECHATPUSH" = "true" ]; then
             echo ">>> 注入微信推送配置项..."
             echo "CONFIG_PACKAGE_jq=y" >> .config
