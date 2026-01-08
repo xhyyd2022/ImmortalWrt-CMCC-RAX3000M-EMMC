@@ -464,6 +464,7 @@ jobs:
           if [ "$ENABLE_OPENCLASH" = "true" ]; then
             # 必须依赖
             echo "CONFIG_PACKAGE_luci-app-openclash=y" >> .config
+            echo "CONFIG_PACKAGE_luci-compat=y" >> .config
             echo "CONFIG_PACKAGE_ruby=y" >> .config
             echo "CONFIG_PACKAGE_ruby-yaml=y" >> .config
             echo "CONFIG_PACKAGE_kmod-tun=y" >> .config
@@ -482,10 +483,36 @@ jobs:
             echo "CONFIG_PACKAGE_luci-i18n-wechatpush-zh-cn=y" >> .config
           fi
 
-      - name: 下载源码
+      - name: 禁用所有 Rust 包
+        run: |
+          cd openwrt
+          sed -i '/RUST\|sing-box\|alist\|ripgrep\|fd\|btop\|zellij\|starship\|exa/d' .config
+          echo "CONFIG_LANG_RUST=n" >>  .config
+          echo "CONFIG_PACKAGE_rust-std=n" >>  .config
+          echo "CONFIG_PACKAGE_rustc=n" >>  .config
+          echo "CONFIG_PACKAGE_cargo=n" >>  .config
+          echo "CONFIG_PACKAGE_sing-box=n" >> .config
+          echo "CONFIG_PACKAGE_alist=n" >> .config
+          echo "CONFIG_PACKAGE_fd=n" >> .config
+          echo "CONFIG_PACKAGE_ripgrep=n" >> .config
+          echo "CONFIG_PACKAGE_btop=n" >> .config
+          echo "CONFIG_PACKAGE_zellij=n" >> .config
+          echo "CONFIG_PACKAGE_starship=n" >> .config
+          echo "CONFIG_PACKAGE_exa=n" >> .config
+
+      - name: 生成编译配置
         run: |
           cd openwrt
           make defconfig
+
+      - name: 检查 Rust 是否被禁用
+        run: |
+          cd openwrt
+          grep -E "RUST|sing-box|alist|ripgrep|fd|btop|zellij|exa" .config || echo "Rust 已完全禁用"
+
+      - name: 下载源码
+        run: |
+          cd openwrt
           make download -j$(nproc)
 
       - name: 编译工具链
