@@ -526,25 +526,35 @@ jobs:
           cd openwrt
 
           echo ">>> 提前编译自定义插件"
+          echo ">>> 当前磁盘空间："
+          df -hT
 
           if [ "$ENABLE_OPENCLASH" = "true" ]; then
             echo ">>> 编译 OpenClash"
             make package/luci-app-openclash/compile -j$(nproc) V=s || { echo "OpenClash 编译失败"; exit 1; }
+            echo ">>> 编译 OpenClash 完成，当前磁盘空间："
+            df -hT
           fi
 
           if [ "$ENABLE_WECHATPUSH" = "true" ]; then
             echo ">>> 编译 微信推送"
             make package/luci-app-wechatpush/compile -j$(nproc) V=s || { echo "WechatPush 编译失败"; exit 1; }
+            echo ">>> 编译 微信推送 完成，当前磁盘空间："
+            df -hT
           fi
 
           if [ "$ENABLE_KEEPALIVED" = "true" ]; then
             echo ">>> 编译 Keepalived-HA"
             make package/luci-app-keepalived-ha/compile -j$(nproc) V=s || { echo "Keepalived-HA 编译失败"; exit 1; }
+            echo ">>> 编译 Keepalived-HA 完成，当前磁盘空间："
+            df -hT
           fi
 
           if [ "$ENABLE_GITLFS" = "true" ]; then
             echo ">>> 编译 git-lfs"
             make package/git-lfs/compile -j$(nproc) V=s || { echo "git-lfs 编译失败"; exit 1; }
+            echo ">>> 编译 git-lfs 完成，当前磁盘空间："
+            df -hT
           fi
 
           echo ">>> 自定义插件编译完成，当前磁盘空间："
