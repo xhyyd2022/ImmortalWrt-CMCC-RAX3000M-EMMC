@@ -407,7 +407,6 @@ jobs:
           chmod +x $DIY_P2_SH
           cd openwrt
           $GITHUB_WORKSPACE/$DIY_P2_SH
-          make defconfig
 
       - name: 启用 keepalived 和 IPVS
         if: env.ENABLE_KEEPALIVED == 'true'
@@ -430,12 +429,9 @@ jobs:
             sed -i "/^$opt=/d" .config
             echo "$opt=$val" >> .config
           done < "$CONFIG_FILE"
-          echo ">>> 执行 make defconfig，解析依赖关系"
           # 更新 feeds
           ./scripts/feeds update -a
           ./scripts/feeds install -a
-          # 解析配置
-          make defconfig
 
       - name: 下载软件包
         id: package
@@ -484,9 +480,18 @@ jobs:
             echo "CONFIG_PACKAGE_jq=y" >> .config
             echo "CONFIG_PACKAGE_luci-app-wechatpush=y" >> .config
             echo "CONFIG_PACKAGE_luci-i18n-wechatpush-zh-cn=y" >> .config
-            echo ">>> 执行 make defconfig，解析依赖关系"
           fi
+
+      - name: 下载源码
+        run: |
+          cd openwrt
           make defconfig
+          make download -j$(nproc)
+
+      - name: 编译工具链
+        run: |
+          cd openwrt
+          make toolchain/install -j$(nproc)
 
       - name: 编译自定义插件
         run: |
