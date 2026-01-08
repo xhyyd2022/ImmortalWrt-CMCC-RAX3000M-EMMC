@@ -534,9 +534,14 @@ jobs:
         with:
           name: compile-log-${{ matrix.device_model }}
           path: |
+            openwrt/build_dir/**/log/*.log
             openwrt/build_dir/**/*.log
-            openwrt/logs/*.log
+            openwrt/build_dir/**/*.txt
+            openwrt/build_dir/**/*.err
+            openwrt/build_dir/**/*.out
+            openwrt/logs/**
             openwrt/*.log
+            openwrt/.config
 
       - name: 提取固件版本号
         id: version
