@@ -482,6 +482,29 @@ jobs:
           fi
           make defconfig
 
+      - name: 编译自定义插件
+        run: |
+          set -e
+          cd openwrt
+
+          if [ "$ENABLE_OPENCLASH" = "true" ]; then
+            echo ">>> 编译 OpenClash"
+            make package/luci-app-openclash/compile -j$(nproc) V=s || { echo "OpenClash 编译失败"; exit 1; }
+          fi
+
+          if [ "$ENABLE_WECHATPUSH" = "true" ]; then
+            echo ">>> 编译 微信推送"
+            make package/luci-app-wechatpush/compile -j$(nproc) V=s || { echo "WechatPush 编译失败"; exit 1; }
+          fi
+
+          if [ "$ENABLE_KEEPALIVED" = "true" ]; then
+            echo ">>> 编译 Keepalived-HA"
+            make package/luci-app-keepalived-ha/compile -j$(nproc) V=s || { echo "Keepalived-HA 编译失败"; exit 1; }
+          fi
+
+          echo ">>> 插件编译完成，当前磁盘空间："
+          df -hT
+
       - name: 编译固件
         id: compile
         run: |
