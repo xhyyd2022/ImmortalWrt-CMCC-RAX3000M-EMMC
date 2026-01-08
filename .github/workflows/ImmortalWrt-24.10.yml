@@ -598,9 +598,12 @@ jobs:
                   cat "$CHECKED_COMMIT_MSGS_FILE"
               fi
             fi
-            echo -e "\n## 验证固件"
-            echo -e "\n- 未验证"
-            echo "" echo "## 🔧 刷机说明" echo "1. 使用 **sysupgrade.itb** 进行升级。" echo "2. 若启用了“上传所有文件”，请谨慎使用 GPT、preloader、FIP 等文件，它们仅用于底层恢复。" echo "3. 如需救砖，可使用 **initramfs-recovery.itb** 从 U-Boot 启动恢复系统。"
+            echo "## 验证固件"
+            echo "- 未验证"
+            echo "## 🔧 刷机说明"
+            echo "1. 使用 **sysupgrade.itb** 进行升级。"
+            echo "2. 若启用了“上传所有文件”，请谨慎使用 GPT、preloader、FIP 等文件，它们仅用于底层恢复。"
+            echo "3. 如需救砖，可使用 **initramfs-recovery.itb** 从 U-Boot 启动恢复系统。"
           } > release
 
           echo "status=success" >> $GITHUB_OUTPUT
