@@ -419,9 +419,9 @@ jobs:
           df -hT
 
       # -------------------------
-      # 阶段 2：在已编译环境上追加插件再编译
+      # 阶段 2：在已编译环境上添加插件再编译
       # -------------------------
-      - name: 阶段2.1：追加 OpenClash 和 微信推送 配置
+      - name: 阶段2.1：添加 OpenClash 和 微信推送 配置
         run: |
           cd openwrt
 
@@ -582,9 +582,9 @@ jobs:
             echo "设备型号: ${{ matrix.device_model }}"
             echo "编译时间: $(date +'%Y-%m-%d %H:%M %Z')"
             echo "后台地址: 192.168.2.1 或 http://immortalwrt.lan/"
-            echo "源仓库 URL: $REPO_URL"
+            echo "源代码仓库: $REPO_URL"
             echo "源仓库分支: $REPO_BRANCH"
-            echo "源仓库 commit: [查看编译时提交]($SOURCE_COMMIT_URL)"
+            echo "源仓库提交: [查看编译时提交]($SOURCE_COMMIT_URL)"
             echo "配置文件: $CONFIG_FILE"
             echo "触发方式: $EVENT_TRIGGER_METHOD"
             if [ -s "$BUILD_COMMIT_MSGS_FILE" ] || [ -s "$CHECKED_COMMIT_MSGS_FILE" ]; then
