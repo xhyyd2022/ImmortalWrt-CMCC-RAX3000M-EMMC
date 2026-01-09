@@ -400,13 +400,25 @@ jobs:
           cd openwrt
           $GITHUB_WORKSPACE/$DIY_P2_SH
 
+      - name: 创建 ccache 目录
+        run: mkdir -p ~/.ccache
+
+      - name: 恢复 ccache 缓存
+        uses: actions/cache@v4
+        with:
+          path: ~/.ccache
+          key: ccache-${{ matrix.device_model }}-${{ env.REPO_BRANCH }}-${{ github.run_id }}
+          restore-keys: |
+            ccache-${{ matrix.device_model }}-${{ env.REPO_BRANCH }}-
+            ccache-${{ matrix.device_model }}-
+            ccache-
+
       # -------------------------
-      # 阶段 1：纯净固件编译（不含自定义插件）
+      # 阶段 1：纯净固件编译
       # -------------------------
       - name: 阶段1.1：纯净固件 defconfig + download
         run: |
           cd openwrt
-          # 删除可能残留的插件/Rust 配置（保险起见）
           sed -i '/openclash\|wechatpush\|RUST\|sing-box\|alist\|ripgrep\|fd\|btop\|zellij\|starship\|exa/d' .config
           make defconfig
           make download -j$(nproc)
@@ -416,8 +428,13 @@ jobs:
           set -e
           cd openwrt
           make -j$(nproc) || make -j4 || make -j1 V=s
-          echo ">>> 阶段1：纯净固件编译完成，当前磁盘空间："
           df -hT
+
+      - name: 保存 ccache 缓存
+        uses: actions/cache@v4
+        with:
+          path: ~/.ccache
+          key: ccache-${{ matrix.device_model }}-${{ env.REPO_BRANCH }}-${{ github.run_id }}
 
       # -------------------------
       # 阶段 2：在已编译环境上添加插件再编译
@@ -467,7 +484,7 @@ jobs:
           cd openwrt
           make download -j$(nproc)
 
-      - name: 阶段2.5：编译最终固件（带插件）
+      - name: 阶段2.5：编译最终固件
         id: compile
         run: |
           set -e
