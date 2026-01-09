@@ -400,9 +400,9 @@ jobs:
           cd openwrt
           $GITHUB_WORKSPACE/$DIY_P2_SH
 
-      # -------------------------
+      # --------------------
       # 阶段 1：纯净固件编译
-      # -------------------------
+      # --------------------
       - name: 阶段1.0：创建 ccache 目录
         run: mkdir -p ~/.ccache
 
@@ -416,7 +416,7 @@ jobs:
             ccache-${{ matrix.device_model }}-
             ccache-
 
-      - name: 阶段1.2：纯净固件 defconfig + download
+      - name: 阶段1.2：初始化纯净构建环境
         run: |
           cd openwrt
           sed -i '/openclash\|wechatpush\|RUST\|sing-box\|alist\|ripgrep\|fd\|btop\|zellij\|starship\|exa/d' .config
@@ -435,9 +435,9 @@ jobs:
           path: ~/.ccache
           key: ccache-${{ matrix.device_model }}-${{ env.REPO_BRANCH }}-${{ github.run_id }}
 
-      # -------------------------
+      # ----------------------------------
       # 阶段 2：在已编译环境上添加插件再编译
-      # -------------------------
+      # ----------------------------------
       - name: 阶段2.0：清理阶段1构建产物
         run: |
           df -hT
