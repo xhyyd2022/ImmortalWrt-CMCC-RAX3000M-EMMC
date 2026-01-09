@@ -400,10 +400,13 @@ jobs:
           cd openwrt
           $GITHUB_WORKSPACE/$DIY_P2_SH
 
-      - name: 创建 ccache 目录
+      # -------------------------
+      # 阶段 1：纯净固件编译
+      # -------------------------
+      - name: 阶段1.0：创建 ccache 目录
         run: mkdir -p ~/.ccache
 
-      - name: 恢复 ccache 缓存
+      - name: 阶段1.1：恢复 ccache 缓存
         uses: actions/cache@v4
         with:
           path: ~/.ccache
@@ -413,24 +416,20 @@ jobs:
             ccache-${{ matrix.device_model }}-
             ccache-
 
-      # -------------------------
-      # 阶段 1：纯净固件编译
-      # -------------------------
-      - name: 阶段1.1：纯净固件 defconfig + download
+      - name: 阶段1.2：纯净固件 defconfig + download
         run: |
           cd openwrt
           sed -i '/openclash\|wechatpush\|RUST\|sing-box\|alist\|ripgrep\|fd\|btop\|zellij\|starship\|exa/d' .config
           make defconfig
           make download -j$(nproc)
 
-      - name: 阶段1.2：编译纯净固件
+      - name: 阶段1.3：编译纯净固件
         run: |
           set -e
           cd openwrt
           make -j$(nproc) >/dev/null 2>&1 || make -j4 >/dev/null 2>&1 || make -j1
-          df -hT
 
-      - name: 保存 ccache 缓存
+      - name: 阶段1.4：保存 ccache 缓存
         uses: actions/cache@v4
         with:
           path: ~/.ccache
@@ -439,6 +438,38 @@ jobs:
       # -------------------------
       # 阶段 2：在已编译环境上添加插件再编译
       # -------------------------
+      - name: 阶段2.0：清理阶段1构建产物
+        run: |
+          df -hT
+          cd openwrt
+
+          echo ">>> 清理 build_dir（阶段1产物）"
+          rm -rf build_dir/target-* build_dir/toolchain-*
+
+          echo ">>> 清理 staging_dir（阶段1产物）"
+          rm -rf staging_dir/target-* staging_dir/toolchain-*
+
+          echo ">>> 清理 tmp 目录"
+          rm -rf tmp/*
+
+          echo ">>> 清理 luci-app-build 临时目录"
+          rm -rf luci-app-build || true
+
+          echo ">>> 清理 bin 目录（阶段1固件）"
+          rm -rf bin || true
+
+          echo ">>> 清理 dl 中的临时文件"
+          find dl -type f -name "*.tmp" -delete || true
+
+          echo ">>> 清理阶段1生成的日志文件"
+          find build_dir -type f -name "*.log" -delete || true
+          find build_dir -type f -name "*.err" -delete || true
+          find build_dir -type f -name "*.out" -delete || true
+          rm -rf logs || true
+
+          echo ">>> 清理完成，当前磁盘空间："
+          df -hT
+
       - name: 阶段2.1：添加自定义配置
         run: |
           cd openwrt
