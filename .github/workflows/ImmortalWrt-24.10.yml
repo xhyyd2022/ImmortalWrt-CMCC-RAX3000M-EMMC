@@ -421,45 +421,28 @@ jobs:
       # -------------------------
       # 阶段 2：在已编译环境上添加插件再编译
       # -------------------------
-      - name: 阶段2.1：添加 OpenClash 和 微信推送 配置
+      - name: 阶段2.1：添加自定义配置
         run: |
           cd openwrt
 
-          if [ "$ENABLE_OPENCLASH" = "true" ]; then
-            echo ">>> 注入 OpenClash 配置..."
-            echo "CONFIG_PACKAGE_luci-app-openclash=y" >> .config
-            echo "CONFIG_PACKAGE_luci-compat=y" >> .config
-            echo "CONFIG_PACKAGE_ruby=y" >> .config
-            echo "CONFIG_PACKAGE_ruby-yaml=y" >> .config
-            echo "CONFIG_PACKAGE_kmod-tun=y" >> .config
-            echo "CONFIG_PACKAGE_bash=y" >> .config
-            echo "CONFIG_PACKAGE_curl=y" >> .config
-            echo "CONFIG_PACKAGE_libcap=y" >> .config
-            echo "CONFIG_PACKAGE_libpcap=y" >> .config
-          fi
+          inject_config() {
+            local file="$1"
+            echo ">>> 注入配置文件: $file"
+            while IFS= read -r line; do
+              [[ -z "$line" || "$line" =~ ^# ]] && continue
+              opt=$(echo "$line" | cut -d= -f1)
+              val=$(echo "$line" | cut -d= -f2)
+              sed -i "/^$opt=/d" .config
+              echo "$opt=$val" >> .config
+            done < "$file"
+          }
 
-          if [ "$ENABLE_WECHATPUSH" = "true" ]; then
-            echo ">>> 注入 微信推送 配置..."
-            echo "CONFIG_PACKAGE_jq=y" >> .config
-            echo "CONFIG_PACKAGE_luci-app-wechatpush=y" >> .config
-            echo "CONFIG_PACKAGE_luci-i18n-wechatpush-zh-cn=y" >> .config
-          fi
+          [ "$ENABLE_OPENCLASH" = "true" ] && inject_config "$GITHUB_WORKSPACE/config/openclash.config"
+          [ "$ENABLE_WECHATPUSH" = "true" ] && inject_config "$GITHUB_WORKSPACE/config/wechatpush.config"
+          [ "$ENABLE_KEEPALIVED" = "true" ] && inject_config "$GITHUB_WORKSPACE/config/keepalived.config"
 
-          # 禁用所有 Rust 相关内容（防止依赖链拉起 rustc）
-          echo ">>> 禁用所有 Rust 相关包..."
-          sed -i '/RUST\|sing-box\|alist\|ripgrep\|fd\|btop\|zellij\|starship\|exa/d' .config
-          echo "CONFIG_LANG_RUST=n" >>  .config
-          echo "CONFIG_PACKAGE_rust-std=n" >>  .config
-          echo "CONFIG_PACKAGE_rustc=n" >>  .config
-          echo "CONFIG_PACKAGE_cargo=n" >>  .config
-          echo "CONFIG_PACKAGE_sing-box=n" >> .config
-          echo "CONFIG_PACKAGE_alist=n" >> .config
-          echo "CONFIG_PACKAGE_fd=n" >> .config
-          echo "CONFIG_PACKAGE_ripgrep=n" >> .config
-          echo "CONFIG_PACKAGE_btop=n" >> .config
-          echo "CONFIG_PACKAGE_zellij=n" >> .config
-          echo "CONFIG_PACKAGE_starship=n" >> .config
-          echo "CONFIG_PACKAGE_exa=n" >> .config
+          # Rust 禁用永远执行
+          inject_config "$GITHUB_WORKSPACE/config/rust_disable.config"
 
       - name: 阶段2.2：添加 keepalived-ha 插件
         if: env.ENABLE_KEEPALIVED == 'true'
@@ -468,25 +451,6 @@ jobs:
           git clone --depth=1 https://github.com/PlanetEditorX/luci-app-build.git
           mkdir -p package/luci-app-keepalived-ha
           cp -r luci-app-build/luci-app-keepalived-ha/* package/luci-app-keepalived-ha/
-
-          echo ">>> 注入 keepalived.config 中的配置项..."
-          CONFIG_FILE="$GITHUB_WORKSPACE/config/keepalived.config"
-          if [ ! -f "$CONFIG_FILE" ]; then
-            echo "❌ 未找到配置文件: $CONFIG_FILE"
-            exit 1
-          fi
-          # 去重注入配置项
-          while IFS= read -r line; do
-            # 跳过空行和注释
-            [[ -z "$line" || "$line" =~ ^# ]] && continue
-            # 提取配置项
-            opt=$(echo "$line" | cut -d= -f1)
-            val=$(echo "$line" | cut -d= -f2)
-            # 移除旧项再追加新项
-            sed -i "/^$opt=/d" .config
-            echo "$opt=$val" >> .config
-          done < "$CONFIG_FILE"
-
           echo ">>> 检查 keepalived-ha 是否启用："
           grep luci-app-keepalived-ha .config || echo "❌ keepalived-ha 未启用"
 
