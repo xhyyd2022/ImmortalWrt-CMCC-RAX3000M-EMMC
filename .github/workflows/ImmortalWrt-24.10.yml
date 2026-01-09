@@ -287,12 +287,6 @@ jobs:
           echo ">>> 当前磁盘空间"
           df -hT
 
-      - name: 配置 ccache
-        run: |
-          echo "export PATH=/usr/lib/ccache:$PATH" >> $GITHUB_ENV
-          echo "export CCACHE_DIR=$HOME/.ccache" >> $GITHUB_ENV
-          ccache -M 5G
-
       - name: 扩容 /tmp 到 4GB
         run: |
           sudo rm -rf /tmp
@@ -333,20 +327,30 @@ jobs:
             ccache-${{ matrix.device_model }}-${{ env.REPO_BRANCH }}-
             ccache-${{ matrix.device_model }}-
 
-      - name: 配置 ccache 接管编译
+      - name: 统一配置 ccache
         run: |
+          # 1. 确保目录存在
           mkdir -p ${{ env.CCACHE_DIR }}
-          # 建立软链接，让 ccache 优先于标准编译器
-          sudo apt-get install -y ccache
-          ccache -M 5G
-          ccache -z # 清空本次统计，方便查看命中率
 
-          # 修正 OpenWrt 的 .config 和变量
+          # 2. 设置全局环境变量 (非常关键)
+          echo "CCACHE_DIR=${{ env.CCACHE_DIR }}" >> $GITHUB_ENV
+          echo "PATH=/usr/lib/ccache:$PATH" >> $GITHUB_ENV
+
+          # 3. ccache 性能优化
+          ccache -M 5G
+          ccache -o compression=true
+          ccache -o hash_dir=false
+          ccache -z # 清空统计，查看本次命中率
+
+          # 4. 强制接管 OpenWrt 编译体系
           cd openwrt
           echo "CONFIG_CCACHE=y" >> .config
-          # 强制在 rules.mk 中指定 ccache 路径
-          sed -i "s|CCACHE_DIR:=.*|CCACHE_DIR:=${{ env.CCACHE_DIR }}|g" include/shell.mk || true
 
+          # 修正 OpenWrt 内部对 CCACHE_DIR 的硬编码定义
+          if [ -f include/shell.mk ]; then
+            sed -i "s|CCACHE_DIR:=.*|CCACHE_DIR:=${{ env.CCACHE_DIR }}|g" include/shell.mk
+          fi
+          
       - name: 获取源码提交 SHA
         run: |
           if [ -f last_checked_sha.txt ]; then
