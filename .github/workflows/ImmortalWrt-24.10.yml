@@ -410,9 +410,9 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~/.ccache
-          key: ccache-${{ matrix.device_model }}-${{ env.REPO_BRANCH }}-${{ github.run_id }}
+          key: ccache-${{ matrix.device_model }}-${{ env.REPO_BRANCH }}
           restore-keys: |
-            ccache-${{ matrix.device_model }}-${{ env.REPO_BRANCH }}-
+            ccache-${{ matrix.device_model }}-${{ env.REPO_BRANCH }}
             ccache-${{ matrix.device_model }}-
             ccache-
 
@@ -429,11 +429,16 @@ jobs:
           cd openwrt
           make -j$(nproc) >/dev/null 2>&1 || make -j4 >/dev/null 2>&1 || make -j1
 
-      - name: 阶段1.4：保存 ccache 缓存
+      - name: 阶段1.4：输出 ccache 统计
+        run: |
+          echo ">>> ccache 统计信息："
+          ccache -s
+
+      - name: 阶段1.5：保存 ccache 缓存
         uses: actions/cache@v4
         with:
           path: ~/.ccache
-          key: ccache-${{ matrix.device_model }}-${{ env.REPO_BRANCH }}-${{ github.run_id }}
+          key: ccache-${{ matrix.device_model }}-${{ env.REPO_BRANCH }}
 
       # ----------------------------------
       # 阶段 2：在已编译环境上添加插件再编译
