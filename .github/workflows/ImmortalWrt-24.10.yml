@@ -469,6 +469,27 @@ jobs:
           mkdir -p package/luci-app-keepalived-ha
           cp -r luci-app-build/luci-app-keepalived-ha/* package/luci-app-keepalived-ha/
 
+          echo ">>> 注入 keepalived.config 中的配置项..."
+          CONFIG_FILE="$GITHUB_WORKSPACE/config/keepalived.config"
+          if [ ! -f "$CONFIG_FILE" ]; then
+            echo "❌ 未找到配置文件: $CONFIG_FILE"
+            exit 1
+          fi
+          # 去重注入配置项
+          while IFS= read -r line; do
+            # 跳过空行和注释
+            [[ -z "$line" || "$line" =~ ^# ]] && continue
+            # 提取配置项
+            opt=$(echo "$line" | cut -d= -f1)
+            val=$(echo "$line" | cut -d= -f2)
+            # 移除旧项再追加新项
+            sed -i "/^$opt=/d" .config
+            echo "$opt=$val" >> .config
+          done < "$CONFIG_FILE"
+
+          echo ">>> 检查 keepalived-ha 是否启用："
+          grep luci-app-keepalived-ha .config || echo "❌ keepalived-ha 未启用"
+
       - name: 阶段2.3：生成最终编译配置
         run: |
           cd openwrt
