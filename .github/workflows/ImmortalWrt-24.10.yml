@@ -423,14 +423,30 @@ jobs:
 
       - name: 阶段1.3：编译纯净固件
         run: |
-          set -e
+          set -euo pipefail
           cd openwrt
-          make -j$(nproc) >/dev/null 2>&1 || make -j4 >/dev/null 2>&1 || make -j1 >/dev/null 2>&1
+
+          echo "开始编译时间: $(date)"
+
+          # 使用 --line-buffered 实时输出进度
+          # 增加 ignore 关键字过滤掉一些无意义的警告，聚焦错误
+          if ! make -j$(nproc) V=s 2>&1 | tee build.log | grep --line-buffered -iE "^make\[[0-9]+\]|error|target|failed"; then
+            echo "----------------------------------------------------"
+            echo "❌ 编译失败 @ $(date)"
+            echo "----------------------------------------------------"
+            # 搜索日志中真正的 Error 关键字附近的内容，而不仅仅是最后 100 行
+            echo "查找日志中的关键错误信息："
+            grep -i -C 5 "error:" build.log | tail -n 20 || tail -n 100 build.log
+            exit 1
+          fi
+          echo "✅ 编译成功: $(date)"
 
       - name: 阶段1.4：输出 ccache 统计
         run: |
           echo ">>> ccache 统计信息："
           ccache -s
+          ls -al ~/.ccache
+          du -sh ~/.ccache
 
       - name: 阶段1.5：保存 ccache 缓存
         uses: actions/cache@v4
@@ -520,10 +536,25 @@ jobs:
 
       - name: 阶段2.5：编译最终固件
         id: compile
+        shell: bash  # 明确指定 bash 以支持 PIPESTATUS
         run: |
-          set -e
           cd openwrt
-          make -j$(nproc) || make -j4 || make -j1 V=s
+          echo "开始编译最终固件..."
+
+          # 使用 --line-buffered 实时查看进度
+          # 使用修正后的正则捕获层级日志
+          make -j$(nproc) V=s 2>&1 | tee build2.log | grep --line-buffered -E '^make\[[0-9]+\]' || true
+          # 获取 make 的退出状态
+          MAKE_EXIT=${PIPESTATUS[0]}
+
+          if [ "$MAKE_EXIT" -ne 0 ]; then
+            echo "----------------------------------------------------"
+            echo "❌ 编译失败，输出 build2.log 最后 200 行："
+            echo "----------------------------------------------------"
+            tail -n 200 build2.log
+            exit 1
+          fi
+
           echo "status=success" >> $GITHUB_OUTPUT
           echo "DEVICE_NAME=_${{ matrix.device_model }}" >> $GITHUB_ENV
           echo "FILE_DATE=_$(date +"%Y%m%d%H%M")" >> $GITHUB_ENV
