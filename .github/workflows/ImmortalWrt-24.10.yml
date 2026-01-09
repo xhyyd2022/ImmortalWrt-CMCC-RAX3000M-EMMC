@@ -140,7 +140,7 @@ jobs:
             echo "should_build=false" >> $GITHUB_OUTPUT
           else
             echo "源仓库最新提交 sha: $LATEST_SHA"
-            echo "LATEST_SHA=$LATEST_SHA" >> $GITHUB_ENV # Keep this for environment variable
+            echo "LATEST_SHA=$LATEST_SHA" >> $GITHUB_ENV
 
             LAST_CHECKED_FILE="last_checked_sha.txt"
             LAST_CHECKED_SHA=$(cat "$LAST_CHECKED_FILE" 2>/dev/null || echo "")
@@ -158,7 +158,7 @@ jobs:
               echo "LATEST_COMMIT_MESSAGE<<EOF" >> $GITHUB_OUTPUT
               echo "$LATEST_COMMIT_MESSAGE" >> $GITHUB_OUTPUT
               echo "EOF" >> $GITHUB_OUTPUT
-              echo "最新提交信息: $LATEST_COMMIT_MESSAGE" # For logging
+              echo "最新提交信息: $LATEST_COMMIT_MESSAGE"
             else
               echo "源仓库无更新，跳过编译"
               echo "should_build=false" >> $GITHUB_OUTPUT
@@ -186,7 +186,7 @@ jobs:
       - name: 检出代码
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0  # 获取完整的提交历史
+          fetch-depth: 0
 
       - name: 输出最近的 5 条提交日志
         run: git log -n 5
@@ -221,8 +221,7 @@ jobs:
           else
             # 生成临时文件
             TEMP_FILE=$(mktemp)
-            # 从上次提交 SHA 到当前 HEAD 的提交信息
-            git log $LAST_BUILD_SHA..HEAD --pretty=format:"%s" | awk '!a[$0]++' | sed 's/^/- /' > "$TEMP_FILE"
+            # 从上次提交 SHA 到当前 HEAD 的提交信息            git log $LAST_BUILD_SHA..HEAD --pretty=format:"%s" | awk '!a[$0]++' | sed 's/^/- /' > "$TEMP_FILE"
             echo "BUILD_COMMIT_MSGS_FILE=$TEMP_FILE" >> $GITHUB_ENV
           fi
           if [ -z "$TEMP_FILE" ]; then
@@ -267,7 +266,7 @@ jobs:
           sudo rm -rf /opt/ghc
           sudo rm -rf /opt/hostedtoolcache/CodeQL
 
-          echo ">>> 清理 Docker（可释放 3–6GB）"
+          echo ">>> 清理 Docker"
           sudo systemctl stop docker || true
           sudo rm -rf /var/lib/docker
 
@@ -275,7 +274,7 @@ jobs:
           sudo apt-get clean
           sudo apt-get autoremove -y
 
-          echo ">>> 清理 Actions 自带的大文件"
+          echo ">>> 清理大文件"
           sudo rm -rf /usr/local/share/powershell
           sudo rm -rf /usr/local/share/chromium
           sudo rm -rf /usr/local/share/edge
@@ -294,7 +293,6 @@ jobs:
 
       - name: 扩容 /tmp 到 4GB
         run: |
-          echo ">>> 扩容 /tmp（tmpfs）到 4GB，用于避免 Ruby 等大包编译失败"
           sudo rm -rf /tmp
           sudo mkdir /tmp
           sudo mount -t tmpfs -o size=4G tmpfs /tmp
@@ -382,13 +380,6 @@ jobs:
           ./scripts/feeds update -a || { echo "❌ 更新 Feeds 失败"; exit 1; }
           ./scripts/feeds install -a || { echo "❌ 安装 Feeds 失败"; exit 1; }
 
-      - name: 添加 luci-app-keepalived-ha 插件
-        if: env.ENABLE_KEEPALIVED == 'true'
-        run: |
-          git clone --depth=1 https://github.com/PlanetEditorX/luci-app-build.git
-          mkdir -p openwrt/package/luci-app-keepalived-ha
-          cp -r luci-app-build/luci-app-keepalived-ha/* openwrt/package/luci-app-keepalived-ha/
-
       - name: 安装iStore商店
         if: (github.event.inputs.istore == 'true')
         run: |
@@ -408,68 +399,39 @@ jobs:
           cd openwrt
           $GITHUB_WORKSPACE/$DIY_P2_SH
 
-      - name: 启用 keepalived 和 IPVS
-        if: env.ENABLE_KEEPALIVED == 'true'
+      # -------------------------
+      # 阶段 1：纯净固件编译（不含自定义插件）
+      # -------------------------
+      - name: 阶段1.1：纯净固件 defconfig + download
         run: |
           cd openwrt
-          echo ">>> 注入 keepalived.config 中的配置项..."
-          CONFIG_FILE="$GITHUB_WORKSPACE/config/keepalived.config"
-          if [ ! -f "$CONFIG_FILE" ]; then
-            echo "❌ 未找到配置文件: $CONFIG_FILE"
-            exit 1
-          fi
-          # 去重注入配置项
-          while IFS= read -r line; do
-            # 跳过空行和注释
-            [[ -z "$line" || "$line" =~ ^# ]] && continue
-            # 提取配置项
-            opt=$(echo "$line" | cut -d= -f1)
-            val=$(echo "$line" | cut -d= -f2)
-            # 移除旧项再追加新项
-            sed -i "/^$opt=/d" .config
-            echo "$opt=$val" >> .config
-          done < "$CONFIG_FILE"
-          # 更新 feeds
-          ./scripts/feeds update -a
-          ./scripts/feeds install -a
+          # 删除可能残留的插件/Rust 配置（保险起见）
+          sed -i '/openclash\|wechatpush\|RUST\|sing-box\|alist\|ripgrep\|fd\|btop\|zellij\|starship\|exa/d' .config
+          make defconfig
+          make download -j$(nproc)
 
-      - name: 下载软件包
-        id: package
-        timeout-minutes: 30
+      - name: 阶段1.2：编译纯净固件
+        run: |
+          set -e
+          cd openwrt
+          make -j$(nproc) || make -j4 || make -j1 V=s
+          echo ">>> 阶段1：纯净固件编译完成，当前磁盘空间："
+          df -hT
+
+      # -------------------------
+      # 阶段 2：在已编译环境上追加插件再编译
+      # -------------------------
+      - name: 阶段2.1：追加 OpenClash 和 微信推送 配置
         run: |
           cd openwrt
-          make download -j$(nproc) || { echo "❌ 下载软件包失败"; exit 1; }
-          find dl -size -1024c -exec rm -f {} \;
 
-      - name: SSH链接管理
-        uses: P3TERX/ssh2actions@v1.0.0
-        if: (github.event.inputs.ssh == 'true')
-
-      - name: 上传 .config
-        uses: actions/upload-artifact@v4
-        if: (github.event.inputs.ssh == 'true')
-        with:
-          name: OpenWrt_config
-          path: openwrt/config
-
-      - name: 初始化配置并下载依赖包
-        timeout-minutes: 60
-        run: |
-          cd openwrt
-          make download -j$(nproc) V=s || { echo "❌ 下载依赖包失败"; exit 1; }
-
-      - name: 添加 OpenClash 和 微信推送
-        run: |
-          cd openwrt
           if [ "$ENABLE_OPENCLASH" = "true" ]; then
-            # 必须依赖
+            echo ">>> 注入 OpenClash 配置..."
             echo "CONFIG_PACKAGE_luci-app-openclash=y" >> .config
             echo "CONFIG_PACKAGE_luci-compat=y" >> .config
             echo "CONFIG_PACKAGE_ruby=y" >> .config
             echo "CONFIG_PACKAGE_ruby-yaml=y" >> .config
             echo "CONFIG_PACKAGE_kmod-tun=y" >> .config
-
-            # 推荐依赖
             echo "CONFIG_PACKAGE_bash=y" >> .config
             echo "CONFIG_PACKAGE_curl=y" >> .config
             echo "CONFIG_PACKAGE_libcap=y" >> .config
@@ -477,15 +439,14 @@ jobs:
           fi
 
           if [ "$ENABLE_WECHATPUSH" = "true" ]; then
-            echo ">>> 注入微信推送配置项..."
+            echo ">>> 注入 微信推送 配置..."
             echo "CONFIG_PACKAGE_jq=y" >> .config
             echo "CONFIG_PACKAGE_luci-app-wechatpush=y" >> .config
             echo "CONFIG_PACKAGE_luci-i18n-wechatpush-zh-cn=y" >> .config
           fi
 
-      - name: 禁用所有 Rust 包
-        run: |
-          cd openwrt
+          # 禁用所有 Rust 相关内容（防止依赖链拉起 rustc）
+          echo ">>> 禁用所有 Rust 相关包..."
           sed -i '/RUST\|sing-box\|alist\|ripgrep\|fd\|btop\|zellij\|starship\|exa/d' .config
           echo "CONFIG_LANG_RUST=n" >>  .config
           echo "CONFIG_PACKAGE_rust-std=n" >>  .config
@@ -500,60 +461,27 @@ jobs:
           echo "CONFIG_PACKAGE_starship=n" >> .config
           echo "CONFIG_PACKAGE_exa=n" >> .config
 
-      - name: 生成编译配置
+      - name: 阶段2.2：添加 keepalived-ha 插件
+        if: env.ENABLE_KEEPALIVED == 'true'
+        run: |
+          cd openwrt
+          git clone --depth=1 https://github.com/PlanetEditorX/luci-app-build.git
+          mkdir -p package/luci-app-keepalived-ha
+          cp -r luci-app-build/luci-app-keepalived-ha/* package/luci-app-keepalived-ha/
+
+      - name: 阶段2.3：生成最终编译配置
         run: |
           cd openwrt
           make defconfig
-
-      - name: 检查 Rust 是否被禁用
-        run: |
-          cd openwrt
+          echo ">>> 检查 Rust 是否被禁用："
           grep -E "RUST|sing-box|alist|ripgrep|fd|btop|zellij|exa" .config || echo "Rust 已完全禁用"
 
-      - name: 下载源码
+      - name: 阶段2.4：下载源码
         run: |
           cd openwrt
           make download -j$(nproc)
 
-      - name: 编译工具链
-        run: |
-          cd openwrt
-          make toolchain/install -j$(nproc)
-
-      - name: 编译自定义插件
-        run: |
-          set -e
-          cd openwrt
-
-          echo ">>> 提前编译自定义插件"
-          echo ">>> 当前磁盘空间："
-          df -hT
-
-          if [ "$ENABLE_WECHATPUSH" = "true" ]; then
-            echo ">>> 编译 微信推送"
-            make package/luci-app-wechatpush/compile -j$(nproc) V=s || { echo "WechatPush 编译失败"; exit 1; }
-            echo ">>> 编译 微信推送 完成，当前磁盘空间："
-            df -hT
-          fi
-
-          if [ "$ENABLE_KEEPALIVED" = "true" ]; then
-            echo ">>> 编译 Keepalived-HA"
-            make package/luci-app-keepalived-ha/compile -j$(nproc) V=s || { echo "Keepalived-HA 编译失败"; exit 1; }
-            echo ">>> 编译 Keepalived-HA 完成，当前磁盘空间："
-            df -hT
-          fi
-
-          if [ "$ENABLE_GITLFS" = "true" ]; then
-            echo ">>> 编译 git-lfs"
-            make package/git-lfs/compile -j$(nproc) V=s || { echo "git-lfs 编译失败"; exit 1; }
-            echo ">>> 编译 git-lfs 完成，当前磁盘空间："
-            df -hT
-          fi
-
-          echo ">>> 自定义插件编译完成，当前磁盘空间："
-          df -hT
-
-      - name: 编译固件
+      - name: 阶段2.5：编译最终固件（带插件）
         id: compile
         run: |
           set -e
@@ -764,11 +692,9 @@ jobs:
           gh cache list
           gh cache delete "${{ env.REPO_PATH }}-${{ env.REPO_BRANCH }}-last-build-sha" \
             --repo ${{ github.repository }}
-
           gh cache delete "${{ env.REPO_PATH }}-${{ env.REPO_BRANCH }}-last-checked-sha" \
             --repo ${{ github.repository }}
-          echo "删除指定缓存后，当前的缓存列表"
-          sleep 5  # 等待缓存删除完成
+          sleep 5
           gh cache list
 
       - name: 保存此次提交sha缓存
@@ -809,7 +735,7 @@ jobs:
           fi
 
       - name: 清理临时文件
-        if: always()  # 确保始终执行
+        if: always()
         run: rm -f ${{ env.BUILD_COMMIT_MSGS_FILE }} ${{ env.CHECKED_COMMIT_MSGS_FILE }}
 
       - name: 清理旧工作流运行
