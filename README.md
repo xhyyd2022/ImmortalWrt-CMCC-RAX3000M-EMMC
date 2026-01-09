@@ -2,24 +2,27 @@
 
 这是一个用于自动编译 [ImmortalWrt 24.10](https://github.com/padavanonly/immortalwrt-mt798x-24.10) 固件的 GitHub Actions 工作流，专为 CMCC RAX3000M EMMC设计。支持每周检查源码更新、自动编译固件，并将 `sysupgrade.bin` 文件上传到 GitHub Release。
 
+## 提示
+- 刷机有风险！有风险！有风险！
+- 由于上游更新造成的uboot和固件不匹配造成无法刷入，原先引用`padavanonly/immortalwrt-mt798x-6.6`仓库转为`padavanonly-mt798x-6.6`分支，下载`RAX3000M-eMMC_XR30-eMMC_Tutorial-Files.7z`获取具体刷机教程和文件，[刷入文件获取](https://github.com/lgs2007m/Actions-OpenWrt/releases/tag/Router-Flashing-Files)。
+- 当前main分支转为使用immortalwrt官方的openwrt-24.10
+
 ## 功能
 - **支持的设备**：`cmcc_rax3000m-emmc`
 - **自动编译**：每周一检查源仓库更新，若有新提交，自动为 CMCC RAX3000M EMMC 机型编译固件。
-- **5G 25dB 增强**：支持启用 5G 高功率模式（默认启用，定时编译时固定启用，手动编译可选）。
-- **固件上传**：上传 `sysupgrade.bin` 文件到 GitHub Release。
+- **固件上传**：上传 `sysupgrade.itb` 文件到 GitHub Release。
 - **清理机制**：保留最近 30 个 GitHub Release 和 30 次工作流运行，自动删除旧记录以节省空间。
 
 ## 使用方法
 
 ### 1. 配置仓库
-- Fork 或克隆本仓库到你的 GitHub 账户。
+- Fork 或单独创建一个独立的新仓库到你的GitHub。
 
 ### 2. 手动触发编译
-- 进入仓库的 **Actions** 页面，选择 `ImmortalWrt-Builder-24.10-6.6` 工作流。
+- 进入仓库的 **Actions** 页面，选择 `ImmortalWrt-24.10` 工作流。
 - 点击 **Run workflow**，选择：
-  - `device_model`：默认`cmcc_rax3000m-emmc`。
-  - `enable_5g_25db`：是否启用 5G 25dB 增强（默认：启用）。
-  - `istore`：是否编译iStore商店（默认：关闭）。
+  - `device_model`：默认`cmcc_rax3000m`。
+  - `上传所有文件（包括 GPT、preloader、FIP、recovery、sysupgrade）`：用于底层刷机。
 - 运行成功后，固件将上传到 GitHub Release 。
 
 ### 3. 编译失败
@@ -33,12 +36,14 @@
       git push --mirror <新空仓库地址>
       ```
 ### 4. 下载固件
-- **GitHub Release**：在仓库的 **Releases** 页面查下载 `sysupgrade.bin`固件。
+- **GitHub Release**：在仓库的 **Releases** 页面查下载 `sysupgrade.itb`固件。
 
 ### 5. 刷写固件
 - 确认设备型号与固件匹配。
 - 备份设备原有固件。
-- 使用 `系统-备份与升级-刷写新的固件` 或  `U-Boot`刷入 `sysupgrade.bin` 文件。
+- 进入`U-Boot`配合`TFTP`刷入 `initramfs-recovery.itb`临时系统。
+- 使用 `系统-备份与升级-刷写新的固件` 输入`sysupgrade.itb` 文件。
+- 具体步骤查看[刷机教程](/files/刷机教程.md)。
 
 ### 6. 测试功能
 - luci-app-keepalived-ha (主从路由管理)
@@ -50,6 +55,8 @@
   - 适用场景：主路由如`CMCC RAX3000M EMMC`性能一般，主要负责拨号和管理，在性能较好的从路由上进行相应的流量处理，不影响局域网的其它普通设备上网。仅当从路由失联后，主路由才会接管对应流量，作为后备处理，从路由恢复后又释放虚拟IP，让所有标签流量走从路由
 
 ## 源码
-- 源码仓库：[immortalwrt-mt798x-24.10](https://github.com/padavanonly/immortalwrt-mt798x-24.10)
-- 仓库分支：`openwrt-24.10-6.6`
+- immortalwrt官方仓库：[immortalwrt](https://github.com/immortalwrt/immortalwrt)
+- immortalwrt官方分支：[openwrt-24.10](https://github.com/immortalwrt/immortalwrt/tree/openwrt-24.10)
+- padavanonly源码仓库：[immortalwrt-mt798x-24.10](https://github.com/padavanonly/immortalwrt-mt798x-24.10)
+- padavanonly仓库分支：[openwrt-24.10-6.6](https://github.com/padavanonly/immortalwrt-mt798x-6.6/tree/openwrt-24.10-6.6)
 - 原工作流：[ImWRT-798X](https://github.com/hhCodingCat/ImWRT-798X)
