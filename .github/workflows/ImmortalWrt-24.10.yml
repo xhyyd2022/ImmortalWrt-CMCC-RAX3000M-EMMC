@@ -517,9 +517,9 @@ jobs:
             while true; do
               echo "📦 磁盘：$(df -hT / | awk 'NR==2{print $3 "/" $5 " used (" $6 ")"}')" >&2
               echo "🗂️ _diag：$(du -sh /home/runner/actions-runner/cached/_diag 2>/dev/null | awk '{print $1}')" >&2
-              echo "📝 build.log（最后20行）：" >&2
-              tail -n 20 build.log >&2
-              echo "----------------------------------------" >&2
+              echo "📝 build.log（最后10行）：" >&2
+              tail -n 10 build.log >&2
+              echo "---------------------------------------------" >&2
               sleep 60
             done
           ) &
@@ -533,7 +533,7 @@ jobs:
             sleep 0.2
           done
 
-          tail -F build.log | grep --line-buffered -E "make\[[0-9]+\]|Entering directory|Compiling|Building|Installing" & watcher=$!
+          tail -F build.log | grep --line-buffered -E "^make\[[1-9]\] -C (tools|toolchain|package|feeds|target)/[^ ]+ (compile|install)" & watcher=$!
 
           wait $pid
           RET=$?
