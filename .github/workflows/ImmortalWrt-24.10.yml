@@ -253,7 +253,7 @@ jobs:
 
           sudo apt-get update -qq
 
-          sudo apt-get install -y -qq \
+          sudo apt-get install -y \
             build-essential ccache cmake curl git gawk gcc-multilib g++-multilib \
             libelf-dev libfuse-dev libglib2.0-dev libgmp3-dev libltdl-dev libmpc-dev libmpfr-dev \
             libncurses5-dev libncursesw5-dev libpython3-dev libreadline-dev libssl-dev libtool \
@@ -490,15 +490,23 @@ jobs:
         id: compile
         run: |
           cd openwrt
-          # 执行编译：行缓冲输出 + 实时过滤 + 捕获状态
-          stdbuf -oL make -j$(nproc) V=s 2>&1 | \
-          grep --line-buffered -Ei "make\[[0-9]+\].*-C.*(compile|install)|error:" || true
 
-          # 立即获取管道左侧 make 的退出码
+          # 1. 将所有输出重定向到 build.log，不再实时打印到屏幕
+          # 2. 屏幕上只显示正在编译的目录名（让 Actions 保持活跃不超时）
+          stdbuf -oL make -j$(nproc) 2>&1 | tee build.log | grep --line-buffered -oP "make\[\d+\].*-C \K.*(?= (compile|install))" || true
+
+          # 3. 检查退出码
           RET_VAL=${PIPESTATUS[0]}
+
           if [ $RET_VAL -ne 0 ]; then
-            echo "❌ 编译失败，make 退出码: $RET_VAL"
-            echo "提示：请检查上方是否有 'error:' 字样的输出。"
+            echo -e "\n\n"
+            echo "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+            echo "❌ 编译失败！退出码: $RET_VAL"
+            echo "🔍 以下是导致崩溃的最后 50 行核心报错："
+            echo "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+            # 过滤掉一些常见的 curl 和 clang 警告噪音，只看核心错误
+            tail -n 200 build.log | grep -Ei "error:|fatal|stop" | tail -n 50
+            echo "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
             exit 1
           fi
 
