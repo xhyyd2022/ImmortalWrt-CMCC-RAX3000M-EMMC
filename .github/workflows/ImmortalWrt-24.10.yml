@@ -466,14 +466,18 @@ jobs:
           cd openwrt
           make defconfig
 
-      - name: 下载源码
+      - name: 下载源码包
         run: |
           cd openwrt
-          make download -j$(nproc) >download.log 2>&1 || {
-            echo "❌ 下载源码失败"
-            tail -n 50 download.log
+          # 使用 stdbuf 和 grep 实时显示下载进度
+          stdbuf -oL make download -j$(nproc) 2>&1 | grep --line-buffered "Downloading" || true
+          # 获取 make download 的真实退出状态
+          RET_VAL=${PIPESTATUS[0]}
+          if [ $RET_VAL -ne 0 ]; then
+            echo "❌ 源码下载失败，退出码: $RET_VAL"
             exit 1
-          }
+          fi
+          echo "✅ 所有源码下载完成（或已通过缓存恢复）"
 
       - name: 编译固件
         id: compile
