@@ -101,6 +101,7 @@ env:
 jobs:
   check-source-updates:
     runs-on: ubuntu-22.04
+    name: 检测源码更新
     outputs:
       should_build: ${{ steps.check.outputs.should_build }}
       latest_commit_message: ${{ steps.check.outputs.LATEST_COMMIT_MESSAGE }}
@@ -173,17 +174,16 @@ jobs:
     needs: check-source-updates
     if: github.event_name == 'workflow_dispatch' || github.event_name == 'push' || needs.check-source-updates.outputs.should_build == 'true'
     runs-on: ubuntu-22.04
-    name: 编译 ${{ matrix.device_model }}
-    strategy:
-      matrix:
-        device_model: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.device_model && fromJSON(format('["{0}"]', github.event.inputs.device_model)) || fromJSON('["cmcc_rax3000m"]') }}
-      max-parallel: 18
+    name: 编译 (${{ github.event.inputs.device_model || 'cmcc_rax3000m' }})
     steps:
       - name: 调试信息
         run: |
+          DEVICE="${{ github.event.inputs.device_model || 'cmcc_rax3000m' }}"
+          echo "DEVICE_MODEL=$DEVICE" >> $GITHUB_ENV
+          echo "DEVICE_NAME=_$DEVICE" >> $GITHUB_ENV
           echo "触发方式: ${{ github.event_name }}"
           echo "EVENT_TRIGGER_METHOD=${{ github.event_name }}" >> $GITHUB_ENV
-          echo "设备型号: ${{ matrix.device_model }}"
+          echo "设备型号: $DEVICE"
           echo "上传 bin 目录: ${{ github.event.inputs.upload_bin_dir }}"
           echo "上传 packages 目录: ${{ github.event.inputs.upload_packages_dir }}"
 
@@ -318,11 +318,10 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ${{ env.CCACHE_DIR }}
-          # Key 增加 run_id 确保每次都能存入新数据，restore-keys 确保能搜到旧数据
-          key: ccache-${{ matrix.device_model }}-${{ env.REPO_BRANCH }}-${{ github.run_id }}
+          key: ccache-${{ env.DEVICE_MODEL }}-${{ env.REPO_BRANCH }}-${{ github.run_id }}
           restore-keys: |
-            ccache-${{ matrix.device_model }}-${{ env.REPO_BRANCH }}-
-            ccache-${{ matrix.device_model }}-
+            ccache-${{ env.DEVICE_MODEL }}-${{ env.REPO_BRANCH }}-
+            ccache-${{ env.DEVICE_MODEL }}-
 
       - name: 统一配置 ccache
         run: |
@@ -424,9 +423,11 @@ jobs:
 
       - name: 加载配置
         run: |
+          # 定义注入函数
           inject_config() {
             local file="$1"
-            echo ">>> 注入配置文件: $file"
+            [ ! -f "$file" ] && { echo ">>> 警告: 未找到配置文件 $file"; return; }
+            echo ">>> 正在从 $file 注入配置..."
             while IFS= read -r line; do
               [[ -z "$line" || "$line" =~ ^# ]] && continue
               opt=$(echo "$line" | cut -d= -f1)
@@ -436,14 +437,21 @@ jobs:
             done < "$file"
           }
 
+          # 基础文件移动
           [ -e files ] && mv files openwrt/files
-          [ -e config/$CONFIG_FILE ] && mv config/$CONFIG_FILE openwrt/.config
-          echo "CONFIG_TARGET_mediatek_filogic_DEVICE_${{ matrix.device_model }}=y" >> openwrt/.config
-          echo "CONFIG_CCACHE=y" >> openwrt/.config
-          chmod +x $DIY_P2_SH
+          [ -e config/$CONFIG_FILE ] && cp config/$CONFIG_FILE openwrt/.config
+
           cd openwrt
+
+          # 注入目标设备型号
+          echo "CONFIG_TARGET_mediatek_filogic_DEVICE_$DEVICE_MODEL=y" >> .config
+          echo "CONFIG_CCACHE=y" >> .config
+
+          # 执行 DIY Part2 脚本
+          chmod +x $GITHUB_WORKSPACE/$DIY_P2_SH
           $GITHUB_WORKSPACE/$DIY_P2_SH
 
+          # 注入功能插件配置
           [ "$ENABLE_OPENCLASH" = "true" ] && inject_config "$GITHUB_WORKSPACE/config/openclash.config"
           [ "$ENABLE_WECHATPUSH" = "true" ] && inject_config "$GITHUB_WORKSPACE/config/wechatpush.config"
           [ "$ENABLE_KEEPALIVED" = "true" ] && inject_config "$GITHUB_WORKSPACE/config/keepalived.config"
@@ -496,14 +504,15 @@ jobs:
           fi
 
           echo "status=success" >> $GITHUB_OUTPUT
-          echo "DEVICE_NAME=_${{ matrix.device_model }}" >> $GITHUB_ENV
+          echo "DEVICE_NAME=_$DEVICE_MODEL" >> $GITHUB_ENV
           echo "FILE_DATE=_$(date +"%Y%m%d%H%M")" >> $GITHUB_ENV
+          echo "✅ 编译成功！"
 
       - name: 上传编译日志
         if: failure()
         uses: actions/upload-artifact@v4
         with:
-          name: compile-log-${{ matrix.device_model }}
+          name: compile-log-${{ env.DEVICE_MODEL }}
           path: |
             openwrt/build_dir/**/log/*.log
             openwrt/build_dir/**/*.log
@@ -538,7 +547,7 @@ jobs:
           cd openwrt/bin/targets/*/*
           [ -d packages ] && mv packages ${{ github.workspace }}
           ls -la
-          DEVICE_MODEL="${{ matrix.device_model }}"
+          DEVICE_MODEL="${DEVICE_MODEL:-rax3000m}"
           for file in *sysupgrade* *factory*; do
             if [ -f "$file" ] && ! echo "$file" | grep -q -- "-bl2"; then
               TYPE=$(echo "$file" | grep -o "sysupgrade\|factory")
@@ -570,20 +579,20 @@ jobs:
         run: |
           set -e
           # 验证必要变量
-          if [ -z "${{ matrix.device_model }}" ] || [ -z "${{ env.FIRMWARE_VERSION }}" ]; then
+          if [ -z "$DEVICE_MODEL" ] || [ -z "${{ env.FIRMWARE_VERSION }}" ]; then
             echo "Missing required variables"
             exit 1
           fi
 
           # 生成标签
-          TAG="ImmortalWrt-24.10-${{ matrix.device_model }}-${{ env.FIRMWARE_VERSION }}"
+          TAG="ImmortalWrt-24.10-$DEVICE_MODEL-${{ env.FIRMWARE_VERSION }}"
           echo "RELEASE_TAG=$TAG-$(date +%Y%m%d%H%M%S)" | tee -a $GITHUB_OUTPUT >> $GITHUB_ENV
 
           # 生成发布说明
           {
             echo "## 📦 固件信息"
             echo "固件版本: ImmortalWrt ${{ env.FIRMWARE_VERSION }}"
-            echo "设备型号: ${{ matrix.device_model }}"
+            echo "设备型号: $DEVICE_MODEL"
             echo "编译时间: $(date +'%Y-%m-%d %H:%M %Z')"
             echo "后台地址: 192.168.2.1 或 http://immortalwrt.lan/"
             echo "源代码仓库: $REPO_URL"
@@ -621,12 +630,6 @@ jobs:
           echo "FIRMWARE路径: ${{ env.FIRMWARE }}"
           echo "TAG状态: ${{ steps.tag.outputs.status }}"
           ls -la ${{ env.FIRMWARE }} || echo "输出目录不存在: ${{ env.FIRMWARE }}"
-
-      - name: 删除同名 tag（如已存在）
-        continue-on-error: true
-        run: |
-          git push --delete origin $RELEASE_TAG || true
-          git tag -d $RELEASE_TAG || true
 
       - name: 检查 release
         run: |
@@ -717,25 +720,29 @@ jobs:
         if: steps.tag.outputs.status == 'success'
         continue-on-error: true
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN  }}
-          MATRIX_DEVICE_MODEL: ${{ matrix.device_model }}
-          CURRENT_RELEASE: ${{ env.RELEASE_TAG }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          DEVICE_MODEL: ${{ env.DEVICE_MODEL }}
+          CURRENT_RELEASE: ${{ steps.tag.outputs.RELEASE_TAG }}
         run: |
-          echo "当前设备型号: $MATRIX_DEVICE_MODEL"
+          echo "当前设备型号: $DEVICE_MODEL"
           echo "当前保留 Release: $CURRENT_RELEASE"
-          gh --version
-          RELEASES=$(gh release list --repo ${{ github.repository }} --limit 100 --json name --jq ".[] | select(.name | test(\"ImmortalWrt-24.10-$MATRIX_DEVICE_MODEL\")) | .name")
-          echo "待删除的 Releases: $RELEASES"
+
+          # 获取符合当前型号的所有 Release 列表
+          # 修正了过滤正则表达式，直接引用 $DEVICE_MODEL
+          RELEASES=$(gh release list --limit 100 --json name --jq ".[] | select(.name | test(\"ImmortalWrt-24.10-$DEVICE_MODEL\")) | .name")
+
           if [ -n "$RELEASES" ]; then
             for RELEASE in $RELEASES; do
+              # 确保不删除刚刚生成的当前 Release
               if [ "$RELEASE" = "$CURRENT_RELEASE" ]; then
-                echo "跳过当前 Release: $RELEASE"
+                echo "保持当前新发布的 Release: $RELEASE"
                 continue
               fi
-              gh release delete "$RELEASE" --yes || { echo "❌ 删除 Release $RELEASE 失败"; exit 1; }
+              echo "正在删除旧 Release: $RELEASE"
+              gh release delete "$RELEASE" --yes --cleanup-tag || echo "❌ 删除 Release $RELEASE 失败，跳过..."
             done
           else
-            echo "无需清理旧 Releases"
+            echo "未发现该型号的旧 Releases，无需清理"
           fi
 
       - name: 清理临时文件
