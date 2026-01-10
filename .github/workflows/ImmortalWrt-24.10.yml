@@ -332,16 +332,6 @@ jobs:
 
           ln -sf "${{ github.workspace }}/workdir/openwrt" "${{ github.workspace }}/openwrt"
 
-      - name: 调试路径
-        run: |
-          echo "当前目录：$(pwd)"
-          echo "列出 scripts 目录："
-          ls -R scripts || echo "scripts 不在当前目录"
-          echo "列出 openwrt/scripts："
-          ls -R openwrt/scripts || echo "openwrt/scripts 不存在"
-          echo ">>> 搜索仓库文件" find /home/runner -maxdepth 4 -type d -name "scripts"
-          ls -l
-
       - name: 准备 ccache 缓存
         uses: actions/cache@v4
         with:
@@ -506,7 +496,6 @@ jobs:
         run: |
           cd openwrt
           make download -j$(nproc)
-          echo "✅ 所有源码下载完成"
 
       - name: 编译固件
         id: compile
@@ -516,11 +505,12 @@ jobs:
 
           # 启动后台监控（输出到 stderr）
           (
+            LOGFILE="$GITHUB_WORKSPACE/monitor.log"
             while true; do
-              echo "📦 磁盘：$(df -hT / | awk 'NR==2{print $3 "/" $5 " used (" $6 ")"}')" >&2
-              echo "🗂️ _diag：$(du -sh /home/runner/actions-runner/cached/_diag 2>/dev/null | awk '{print $1}')" >&2
-              echo "---------------------------------------------" >&2
-              sleep 60
+              echo "📦 磁盘：$(df -hT "${GITHUB_WORKSPACE}" | awk 'NR==2{print $3 "/" $5 " used (" $6 ")"}')" >&2
+              echo "🗂️ _diag：$(du -sh /home/runner/actions-runner/cached/_diag 2>/dev/null | awk '{print $1}')" >> "$LOGFILE"
+              echo "---------------------------------------------" >> "$LOGFILE"
+              sleep 300
             done
           ) &
           monitor_pid=$!
@@ -541,7 +531,6 @@ jobs:
           echo "DEVICE_NAME=_$DEVICE_MODEL" >> $GITHUB_ENV
           echo "FILE_DATE=_$(date +"%Y%m%d%H%M")" >> $GITHUB_ENV
           echo "✅ 编译成功！"
-
 
       - name: 检查 ccache 写入情况
         run: |
