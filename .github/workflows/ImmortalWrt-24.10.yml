@@ -253,8 +253,8 @@ jobs:
             echo "未找到 last_build_sha.txt，视为首次构建"
           fi
 
-          # 创建临时文件
-          TEMP_FILE=$(mktemp)
+          # 创建提交文件
+          TEMP_FILE="$GITHUB_WORKSPACE/build_commit_msgs.txt"
 
           # 如果是首次构建，输出全部提交
           if [ -z "$LAST_BUILD_SHA" ]; then
@@ -367,15 +367,15 @@ jobs:
 
           cd "$GITHUB_WORKSPACE/workdir/openwrt"
 
-          # 创建临时文件
-          TEMP_FILE=$(mktemp)
+          TEMP_FILE="$GITHUB_WORKSPACE/checked_commit_msgs.txt"
 
           # 判断是否首次运行
           if [ -z "$LAST_CHECKED_SHA" ]; then
             echo "首次运行，无历史更新记录"
           else
             echo "输出从 $LAST_CHECKED_SHA 到 HEAD 的提交日志"
-            git log $LAST_CHECKED_SHA..HEAD --pretty=format:"%s" | awk '!a[$0]++' | sed 's/^/- /' > "$TEMP_FILE"
+            git log $LAST_CHECKED_SHA..HEAD --pretty=format:"%s" \
+              | awk '!a[$0]++' | sed 's/^/- /' > "$TEMP_FILE"
           fi
 
           # 判断文件是否为空
