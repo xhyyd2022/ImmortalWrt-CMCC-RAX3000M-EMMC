@@ -419,81 +419,6 @@ jobs:
 
       - name: 加载配置
         run: |
-          [ -e files ] && mv files openwrt/files
-          [ -e config/$CONFIG_FILE ] && mv config/$CONFIG_FILE openwrt/.config
-          echo "CONFIG_TARGET_mediatek_filogic_DEVICE_${{ matrix.device_model }}=y" >> openwrt/.config
-          echo "CONFIG_CCACHE=y" >> openwrt/.config
-          chmod +x $DIY_P2_SH
-          cd openwrt
-          $GITHUB_WORKSPACE/$DIY_P2_SH
-
-      # --------------------
-      # 阶段 1：纯净固件编译
-      # --------------------
-      - name: 阶段1.0：初始化纯净构建环境
-        run: |
-          cd openwrt
-          sed -i '/openclash\|wechatpush\|RUST\|sing-box\|alist\|ripgrep\|fd\|btop\|zellij\|starship\|exa/d' .config
-          make defconfig
-          make download -j$(nproc)
-
-      - name: 阶段1.2：编译纯净固件
-        run: |
-          set -euo pipefail
-          cd openwrt
-
-          make -j$(nproc) V=s 2>&1 | tee build.log | grep --line-buffered -E "^make\[[0-9]+\] -C.*compile|error:|failed" || {
-            echo "----------------------------------------------------"
-            echo "❌ 编译失败，显示最后 100 行错误日志："
-            tail -n 100 build.log
-            exit 1
-          }
-          echo "✅ 编译成功: $(date)"
-
-      - name: 阶段1.3：输出 ccache 统计
-        run: |
-          ccache -s
-          du -sh ${{ env.CCACHE_DIR }}
-
-      # ----------------------------------
-      # 阶段 2：在已编译环境上添加插件再编译
-      # ----------------------------------
-      - name: 阶段2.0：清理阶段1构建产物
-        run: |
-          df -hT
-          cd openwrt
-
-          echo ">>> 清理 build_dir（阶段1产物）"
-          rm -rf build_dir/target-* build_dir/toolchain-*
-
-          echo ">>> 清理 staging_dir（阶段1产物）"
-          rm -rf staging_dir/target-* staging_dir/toolchain-*
-
-          echo ">>> 清理 tmp 目录"
-          rm -rf tmp/*
-
-          echo ">>> 清理 luci-app-build 临时目录"
-          rm -rf luci-app-build || true
-
-          echo ">>> 清理 bin 目录（阶段1固件）"
-          rm -rf bin || true
-
-          echo ">>> 清理 dl 中的临时文件"
-          find dl -type f -name "*.tmp" -delete || true
-
-          echo ">>> 清理阶段1生成的日志文件"
-          find build_dir -type f -name "*.log" -delete || true
-          find build_dir -type f -name "*.err" -delete || true
-          find build_dir -type f -name "*.out" -delete || true
-          rm -rf logs || true
-
-          echo ">>> 清理完成，当前磁盘空间："
-          df -hT
-
-      - name: 阶段2.1：添加自定义配置
-        run: |
-          cd openwrt
-
           inject_config() {
             local file="$1"
             echo ">>> 注入配置文件: $file"
@@ -506,14 +431,22 @@ jobs:
             done < "$file"
           }
 
+          [ -e files ] && mv files openwrt/files
+          [ -e config/$CONFIG_FILE ] && mv config/$CONFIG_FILE openwrt/.config
+          echo "CONFIG_TARGET_mediatek_filogic_DEVICE_${{ matrix.device_model }}=y" >> openwrt/.config
+          echo "CONFIG_CCACHE=y" >> openwrt/.config
+          chmod +x $DIY_P2_SH
+          cd openwrt
+          $GITHUB_WORKSPACE/$DIY_P2_SH
+
           [ "$ENABLE_OPENCLASH" = "true" ] && inject_config "$GITHUB_WORKSPACE/config/openclash.config"
           [ "$ENABLE_WECHATPUSH" = "true" ] && inject_config "$GITHUB_WORKSPACE/config/wechatpush.config"
           [ "$ENABLE_KEEPALIVED" = "true" ] && inject_config "$GITHUB_WORKSPACE/config/keepalived.config"
 
-          # Rust 禁用永远执行
+          # 禁用 Rust
           inject_config "$GITHUB_WORKSPACE/config/rust_disable.config"
 
-      - name: 阶段2.2：添加 keepalived-ha 插件
+      - name: 添加 keepalived-ha 插件
         if: env.ENABLE_KEEPALIVED == 'true'
         run: |
           cd openwrt
@@ -523,39 +456,22 @@ jobs:
           echo ">>> 检查 keepalived-ha 是否启用："
           grep luci-app-keepalived-ha .config || echo "❌ keepalived-ha 未启用"
 
-      - name: 阶段2.3：生成最终编译配置
+      - name: 生成最终编译配置
         run: |
           cd openwrt
           make defconfig
-          echo ">>> 检查 Rust 是否被禁用："
-          grep -E "RUST|sing-box|alist|ripgrep|fd|btop|zellij|exa" .config || echo "Rust 已完全禁用"
 
-      - name: 阶段2.4：下载源码
+      - name: 下载源码
         run: |
           cd openwrt
           make download -j$(nproc)
 
-      - name: 阶段2.5：编译最终固件
+      - name: 编译最终固件
         id: compile
-        shell: bash
         run: |
+          set -e
           cd openwrt
-          echo "开始编译最终固件..."
-
-          make -j$(nproc) V=s 2>&1 | tee build2.log | grep --line-buffered -E "^make\[[0-9]+\] -C.*compile|error:|failed" || true
-
-          # 获取 make 的退出状态
-          MAKE_EXIT=${PIPESTATUS[0]}
-
-          if [ "$MAKE_EXIT" -ne 0 ]; then
-            echo "----------------------------------------------------"
-            echo "❌ 编译失败，正在分析 build2.log 中的核心错误："
-            echo "----------------------------------------------------"
-            # 这里的 grep 是为了在满屏的精简日志中，帮你把真正的报错找出来
-            grep -i -C 3 "error:" build2.log || tail -n 200 build2.log
-            exit 1
-          fi
-
+          make -j$(nproc) || make -j4 || make -j1 V=s
           echo "status=success" >> $GITHUB_OUTPUT
           echo "DEVICE_NAME=_${{ matrix.device_model }}" >> $GITHUB_ENV
           echo "FILE_DATE=_$(date +"%Y%m%d%H%M")" >> $GITHUB_ENV
@@ -597,12 +513,8 @@ jobs:
         run: |
           set -e
           cd openwrt/bin/targets/*/*
-
-          rm -rf ${{ github.workspace }}/packages
-          mv packages ${{ github.workspace }} || true
-
+          [ -d packages ] && mv packages ${{ github.workspace }}
           ls -la
-
           DEVICE_MODEL="${{ matrix.device_model }}"
           for file in *sysupgrade* *factory*; do
             if [ -f "$file" ] && ! echo "$file" | grep -q -- "-bl2"; then
