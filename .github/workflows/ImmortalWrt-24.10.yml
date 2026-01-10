@@ -464,7 +464,6 @@ jobs:
       - name: 下载源码包
         run: |
           cd openwrt
-          make download -j$(nproc) >download.log 2>&1 & pid=$!
 
           # 后台下载
           make download -j$(nproc) > download.log 2>&1 & pid=$!
@@ -503,10 +502,8 @@ jobs:
           # 启动后台监控
           (
             while true; do
-              echo "📦 当前磁盘空间："
-              df -hT / | tail -n 1
-              echo "🗂️  _diag 目录大小："
-              du -sh /home/runner/actions-runner/cached/_diag 2>/dev/null || echo "_diag 不存在"
+              echo "📦 磁盘：$(df -hT / | awk 'NR==2{print $3 "/" $5 " used (" $6 ")"}')"
+              echo "🗂️ _diag：$(du -sh /home/runner/actions-runner/cached/_diag 2>/dev/null | awk '{print $1}')"
               echo "----------------------------------------"
               sleep 60
             done
