@@ -470,7 +470,7 @@ jobs:
         run: |
           cd openwrt
           # 使用 stdbuf 和 grep 实时显示下载进度
-          stdbuf -oL make download -j$(nproc) 2>&1 | grep --line-buffered "Downloading" || true
+          stdbuf -oL make download -j$(nproc) 2>&1 | grep --line-buffered "download" || true
           # 获取 make download 的真实退出状态
           RET_VAL=${PIPESTATUS[0]}
           if [ $RET_VAL -ne 0 ]; then
@@ -484,7 +484,8 @@ jobs:
         run: |
           cd openwrt
           # 执行编译：行缓冲输出 + 实时过滤 + 捕获状态
-          stdbuf -oL make -j$(nproc) V=s 2>&1 | grep --line-buffered -E "Entering directory|make\[[0-9]+\]:.*compile|error:" || true
+          stdbuf -oL make -j$(nproc) V=s 2>&1 | \
+          grep --line-buffered -Ei "make\[[0-9]+\].*-C.*(compile|install)|error:" || true
 
           # 立即获取管道左侧 make 的退出码
           RET_VAL=${PIPESTATUS[0]}
