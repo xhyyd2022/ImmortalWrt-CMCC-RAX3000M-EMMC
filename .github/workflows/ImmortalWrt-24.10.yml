@@ -475,16 +475,21 @@ jobs:
             exit 1
           }
 
-      - name: 诊断 Runner _diag 空间占用
-        run: |
-          du -sh /home/runner/actions-runner/cached/_diag 2>/dev/null || echo "_diag 不存在"
-
       - name: 编译固件
         id: compile
         run: |
-          set -e
           cd openwrt
-          make -j$(nproc) || make -j4 || make -j1 V=s
+          # 执行编译：行缓冲输出 + 实时过滤 + 捕获状态
+          stdbuf -oL make -j$(nproc) V=s 2>&1 | grep --line-buffered -E "Entering directory|make\[[0-9]+\]:.*compile|error:" || true
+
+          # 立即获取管道左侧 make 的退出码
+          RET_VAL=${PIPESTATUS[0]}
+          if [ $RET_VAL -ne 0 ]; then
+            echo "❌ 编译失败，make 退出码: $RET_VAL"
+            echo "提示：请检查上方是否有 'error:' 字样的输出。"
+            exit 1
+          fi
+
           echo "status=success" >> $GITHUB_OUTPUT
           echo "DEVICE_NAME=_${{ matrix.device_model }}" >> $GITHUB_ENV
           echo "FILE_DATE=_$(date +"%Y%m%d%H%M")" >> $GITHUB_ENV
