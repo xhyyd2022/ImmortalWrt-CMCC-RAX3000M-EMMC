@@ -304,6 +304,14 @@ jobs:
           echo ">>> 当前磁盘空间"
           df -hT
 
+      - name: 调试路径
+        run: |
+          echo "当前目录：$(pwd)"
+          echo "列出 scripts 目录："
+          ls -R scripts || echo "scripts 不在当前目录"
+          echo "列出 openwrt/scripts："
+          ls -R openwrt/scripts || echo "openwrt/scripts 不存在"
+
       - name: 扩容 /tmp 到 4GB
         run: |
           # 如果 /tmp 本身就是 tmpfs，它会调整大小；如果不是，它会挂载一个新的
