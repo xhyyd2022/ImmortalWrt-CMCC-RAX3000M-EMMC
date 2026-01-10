@@ -247,19 +247,24 @@ jobs:
           echo "可用磁盘空间：${AVAILABLE}G"
 
       - name: 初始化环境
-        env:
-          DEBIAN_FRONTEND: noninteractive
         run: |
-          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL
-          sudo docker image prune --all --force
-          sudo apt-get update
-          sudo apt-get install -y build-essential ccache cmake curl git gawk gcc-multilib g++-multilib \
+          # 删除预装软件
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL >/dev/null 2>&1
+          sudo docker image prune --all --force >/dev/null 2>&1 || true
+
+          sudo apt-get update -qq
+
+          # 静默安装依赖（只输出错误）
+          sudo apt-get install -y -qq \
+            build-essential ccache cmake curl git gawk gcc-multilib g++-multilib \
             libelf-dev libfuse-dev libglib2.0-dev libgmp3-dev libltdl-dev libmpc-dev libmpfr-dev \
             libncurses5-dev libncursesw5-dev libpython3-dev libreadline-dev libssl-dev libtool \
-            ninja-build python3 python3-pyelftools rsync unzip vim wget zlib1g-dev
-          sudo apt-get autoremove --purge
-          sudo apt-get clean
-          sudo timedatectl set-timezone "$TZ"
+            ninja-build python3 python3-pyelftools rsync unzip vim wget zlib1g-dev gh
+
+          # 设置时区
+          sudo timedatectl set-timezone "$TZ" >/dev/null 2>&1
+
+          # 创建工作目录
           sudo mkdir -p /workdir
           sudo chown $USER:$GROUPS /workdir
 
@@ -297,10 +302,6 @@ jobs:
           sudo mount -t tmpfs -o size=4G tmpfs /tmp
           echo ">>> 当前磁盘空间"
           df -hT
-
-      - name: 安装 GitHub CLI
-        run: |
-          sudo apt-get install -y gh
 
       - name: 克隆源码
         working-directory: /workdir
@@ -459,7 +460,7 @@ jobs:
           echo ">>> 检查 keepalived-ha 是否启用："
           grep luci-app-keepalived-ha .config || echo "❌ keepalived-ha 未启用"
 
-      - name: 生成最终编译配置
+      - name: 生成编译配置
         run: |
           cd openwrt
           make defconfig
@@ -469,7 +470,13 @@ jobs:
           cd openwrt
           make download -j$(nproc)
 
-      - name: 编译最终固件
+      - name: 删除诊断日志和临时运行器缓存
+        run: |
+          sudo rm -rf /home/runner/actions-runner/cached/_diag/*
+          sudo rm -rf /home/runner/actions-runner/_work/_temp/*
+          sudo rm -rf /home/runner/actions-runner/_work/_tool/*
+
+      - name: 编译固件
         id: compile
         run: |
           set -e
