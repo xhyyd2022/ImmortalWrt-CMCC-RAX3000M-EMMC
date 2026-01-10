@@ -216,24 +216,31 @@ jobs:
             echo "读取到上次提交 SHA: $LAST_BUILD_SHA"
           else
             LAST_BUILD_SHA=""
-            echo "last_build_sha.txt 文件不存在，无法获取上次提交 SHA"
+            echo "未找到 last_build_sha.txt，视为首次构建"
           fi
 
+          # 创建临时文件
+          TEMP_FILE=$(mktemp)
+
+          # 如果是首次构建，输出全部提交
           if [ -z "$LAST_BUILD_SHA" ]; then
-            echo "LAST_BUILD_SHA 为空，无法获取上次提交信息"
+            echo "首次构建，输出全部提交日志"
+            git log --pretty=format:"%s" | awk '!a[$0]++' | sed 's/^/- /' > "$TEMP_FILE"
           else
-            # 生成临时文件
-            TEMP_FILE=$(mktemp)
-            # 从上次提交 SHA 到当前 HEAD 的提交信息
+            # 输出从上次构建到现在的提交
             git log $LAST_BUILD_SHA..HEAD --pretty=format:"%s" | awk '!a[$0]++' | sed 's/^/- /' > "$TEMP_FILE"
-            echo "BUILD_COMMIT_MSGS_FILE=$TEMP_FILE" >> $GITHUB_ENV
           fi
-          if [ -z "$TEMP_FILE" ]; then
+
+          # 判断文件是否为空
+          if [ ! -s "$TEMP_FILE" ]; then
             echo "本仓库无更新"
           else
             echo "本仓库更新信息:"
-            cat $TEMP_FILE
+            cat "$TEMP_FILE"
           fi
+
+          # 写入环境变量
+          echo "BUILD_COMMIT_MSGS_FILE=$TEMP_FILE" >> $GITHUB_ENV
 
       - name: 检查磁盘空间
         run: |
@@ -341,34 +348,45 @@ jobs:
             echo "读取到上次提交 SHA: $LAST_CHECKED_SHA"
           else
             LAST_CHECKED_SHA=""
-            echo "last_checked_sha.txt 文件不存在，无法获取上次提交 SHA"
+            echo "未找到 last_checked_sha.txt，视为首次检查"
           fi
+
           cd /workdir/openwrt
+
+          # 创建临时文件
+          TEMP_FILE=$(mktemp)
+
+          # 判断是否首次运行
           if [ -z "$LAST_CHECKED_SHA" ]; then
-            echo "LAST_CHECKED_SHA 为空，无法获取上次提交信息"
+            echo "首次运行，无历史更新记录"
           else
-            # 生成临时文件
-            TEMP_FILE=$(mktemp)
-            # 从上次提交 SHA 到当前 HEAD 的提交信息
+            echo "输出从 $LAST_CHECKED_SHA 到 HEAD 的提交日志"
             git log $LAST_CHECKED_SHA..HEAD --pretty=format:"%s" | awk '!a[$0]++' | sed 's/^/- /' > "$TEMP_FILE"
-            echo "CHECKED_COMMIT_MSGS_FILE=$TEMP_FILE" >> $GITHUB_ENV
           fi
-          if [ -z "$TEMP_FILE" ]; then
+
+          # 判断文件是否为空
+          if [ ! -s "$TEMP_FILE" ]; then
             echo "源仓库无更新"
           else
             echo "源仓库更新信息:"
-            cat $TEMP_FILE
+            cat "$TEMP_FILE"
           fi
+
+          # 写入环境变量供后续步骤使用
+          echo "CHECKED_COMMIT_MSGS_FILE=$TEMP_FILE" >> $GITHUB_ENV
+
           echo "输出源仓库最近的 5 条提交日志"
           git log -n 5
+
           echo "存入源仓库最新提交信息到文件"
           echo "$(git rev-parse HEAD)" > /workdir/last_checked_sha.txt
+
           # 获取当前源码 SHA
           CURRENT_SHA=$(git rev-parse HEAD)
-          # 生成 commit URL
           COMMIT_URL="${REPO_URL}/commit/${CURRENT_SHA}"
           echo "当前源码提交链接: $COMMIT_URL"
-          # 写入环境变量（供后续步骤使用）
+
+          # 写入环境变量
           echo "SOURCE_COMMIT_URL=$COMMIT_URL" >> $GITHUB_ENV
 
       - name: 移动last_checked_sha到根目录
@@ -473,12 +491,7 @@ jobs:
             sleep 0.2
           done
 
-          # 实时抽取进度
           tail -F download.log | grep --line-buffered "download" & watcher=$!
-
-          # 实时抽取少量进度
-          tail -F download.log | grep --line-buffered "download" &
-          watcher=$!
 
           wait $pid
           RET=$?
@@ -499,12 +512,14 @@ jobs:
           cd openwrt
           echo "🚀 正在编译固件..."
 
-          # 启动后台监控
+          # 启动后台监控（输出到 stderr）
           (
             while true; do
-              echo "📦 磁盘：$(df -hT / | awk 'NR==2{print $3 "/" $5 " used (" $6 ")"}')"
-              echo "🗂️ _diag：$(du -sh /home/runner/actions-runner/cached/_diag 2>/dev/null | awk '{print $1}')"
-              echo "----------------------------------------"
+              echo "📦 磁盘：$(df -hT / | awk 'NR==2{print $3 "/" $5 " used (" $6 ")"}')" >&2
+              echo "🗂️ _diag：$(du -sh /home/runner/actions-runner/cached/_diag 2>/dev/null | awk '{print $1}')" >&2
+              echo "📝 build.log（最后20行）：" >&2
+              tail -n 20 build.log >&2
+              echo "----------------------------------------" >&2
               sleep 60
             done
           ) &
@@ -518,8 +533,7 @@ jobs:
             sleep 0.2
           done
 
-          # 实时从 build.log 抽取少量进度
-          tail -F build.log | grep --line-buffered -Ei "make\[[0-9]+\].*-C.*compile|failed to build" & watcher=$!
+          tail -F build.log | grep --line-buffered -E "make\[[0-9]+\]|Entering directory|Compiling|Building|Installing" & watcher=$!
 
           wait $pid
           RET=$?
@@ -620,6 +634,10 @@ jobs:
             echo "Missing required variables"
             exit 1
           fi
+
+          # 检查是否存在更新
+          [ -s "$BUILD_COMMIT_MSGS_FILE" ] && echo ">>> 本仓库存在更新"
+          [ -s "$CHECKED_COMMIT_MSGS_FILE" ] && echo ">>> 源仓库存在更新"
 
           # 生成标签
           TAG="ImmortalWrt-24.10-$DEVICE_MODEL-${{ env.FIRMWARE_VERSION }}"
