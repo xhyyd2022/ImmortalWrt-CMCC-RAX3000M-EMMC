@@ -174,7 +174,7 @@ jobs:
     needs: check-source-updates
     if: github.event_name == 'workflow_dispatch' || github.event_name == 'push' || needs.check-source-updates.outputs.should_build == 'true'
     runs-on: ubuntu-22.04
-    name: 编译 (${{ github.event.inputs.device_model || 'cmcc_rax3000m' }})
+    name: 编译 ${{ github.event.inputs.device_model || 'cmcc_rax3000m' }}
     steps:
       - name: 调试信息
         run: |
@@ -258,7 +258,7 @@ jobs:
             libelf-dev libfuse-dev libglib2.0-dev libgmp3-dev libltdl-dev libmpc-dev libmpfr-dev \
             libncurses5-dev libncursesw5-dev libpython3-dev libreadline-dev libssl-dev libtool \
             ninja-build python3 python3-pyelftools rsync unzip vim wget zlib1g-dev gh help2man \
-            >/dev/null 2>&1
+            flex bison patch gettext lib32gcc-s1 libc6-dev-i386 libncurses-dev
 
           sudo timedatectl set-timezone "$TZ" >/dev/null 2>&1
           sudo mkdir -p /workdir
@@ -290,11 +290,10 @@ jobs:
 
       - name: 扩容 /tmp 到 4GB
         run: |
-          sudo rm -rf /tmp
-          sudo mkdir /tmp
-          sudo mount -t tmpfs -o size=4G tmpfs /tmp
-          echo ">>> 当前磁盘空间"
-          df -hT
+          # 如果 /tmp 本身就是 tmpfs，它会调整大小；如果不是，它会挂载一个新的
+          sudo mount -t tmpfs -o remount,size=4G /tmp || sudo mount -t tmpfs -o size=4G tmpfs /tmp
+          echo ">>> /tmp 扩容完成"
+          df -hT /tmp
 
       - name: 克隆源码
         working-directory: /workdir
