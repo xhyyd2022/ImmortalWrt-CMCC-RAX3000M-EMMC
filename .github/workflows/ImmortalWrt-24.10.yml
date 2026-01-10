@@ -225,16 +225,6 @@ jobs:
           echo ">>> 当前磁盘空间"
           df -hT
 
-      - name: 调试路径
-        run: |
-          echo "当前目录：$(pwd)"
-          echo "列出 scripts 目录："
-          ls -R scripts || echo "scripts 不在当前目录"
-          echo "列出 openwrt/scripts："
-          ls -R openwrt/scripts || echo "openwrt/scripts 不存在"
-          echo ">>> 搜索仓库文件" find /home/runner -maxdepth 4 -type d -name "scripts"
-          ls -l
-
       - name: 输出最近的 5 条提交日志
         run: git log -n 5
 
@@ -338,6 +328,16 @@ jobs:
             exit 1
           fi
           ln -sf /workdir/openwrt $GITHUB_WORKSPACE/openwrt
+
+      - name: 调试路径
+        run: |
+          echo "当前目录：$(pwd)"
+          echo "列出 scripts 目录："
+          ls -R scripts || echo "scripts 不在当前目录"
+          echo "列出 openwrt/scripts："
+          ls -R openwrt/scripts || echo "openwrt/scripts 不存在"
+          echo ">>> 搜索仓库文件" find /home/runner -maxdepth 4 -type d -name "scripts"
+          ls -l
 
       - name: 准备 ccache 缓存
         uses: actions/cache@v4
@@ -522,7 +522,7 @@ jobs:
           ) &
           monitor_pid=$!
 
-          make -j$(nproc) V=s || make -j4 V=s || make -j1 V=s
+          make -j$(nproc) || make -j4 || make -j1 V=s
           RET=$?
 
           # 停止监控
