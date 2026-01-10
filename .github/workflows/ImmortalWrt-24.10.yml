@@ -533,7 +533,7 @@ jobs:
             sleep 0.2
           done
 
-          tail -F build.log | grep --line-buffered -E "^make\[[1-9]\] -C (tools|toolchain|package|feeds|target)/[^ ]+ (compile|install)" & watcher=$!
+          tail -F build.log | grep --line-buffered -E "^make\[[1-9]\] -C .+ (compile|install)" & watcher=$!
 
           wait $pid
           RET=$?
