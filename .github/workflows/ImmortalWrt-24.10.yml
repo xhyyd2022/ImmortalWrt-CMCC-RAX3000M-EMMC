@@ -248,49 +248,42 @@ jobs:
 
       - name: 初始化环境
         run: |
-          # 删除预装软件
           sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL >/dev/null 2>&1
           sudo docker image prune --all --force >/dev/null 2>&1 || true
 
           sudo apt-get update -qq
 
-          # 静默安装依赖（只输出错误）
           sudo apt-get install -y -qq \
             build-essential ccache cmake curl git gawk gcc-multilib g++-multilib \
             libelf-dev libfuse-dev libglib2.0-dev libgmp3-dev libltdl-dev libmpc-dev libmpfr-dev \
             libncurses5-dev libncursesw5-dev libpython3-dev libreadline-dev libssl-dev libtool \
-            ninja-build python3 python3-pyelftools rsync unzip vim wget zlib1g-dev gh
+            ninja-build python3 python3-pyelftools rsync unzip vim wget zlib1g-dev gh \
+            >/dev/null 2>&1
 
-          # 设置时区
           sudo timedatectl set-timezone "$TZ" >/dev/null 2>&1
-
-          # 创建工作目录
           sudo mkdir -p /workdir
           sudo chown $USER:$GROUPS /workdir
 
       - name: 清理磁盘空间
         run: |
-          echo ">>> 清理预装软件（dotnet/android/haskell/CodeQL）"
-          sudo rm -rf /usr/share/dotnet
-          sudo rm -rf /usr/local/lib/android
-          sudo rm -rf /opt/ghc
-          sudo rm -rf /opt/hostedtoolcache/CodeQL
+          # 清理预装软件
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL >/dev/null 2>&1
 
-          echo ">>> 清理 Docker"
-          sudo systemctl stop docker || true
-          sudo rm -rf /var/lib/docker
+          # 清理 Docker
+          sudo systemctl stop docker >/dev/null 2>&1 || true
+          sudo rm -rf /var/lib/docker >/dev/null 2>&1
 
-          echo ">>> 清理 APT 缓存"
-          sudo apt-get clean
-          sudo apt-get autoremove -y
+          # 清理 APT 缓存
+          sudo apt-get clean >/dev/null 2>&1
+          sudo apt-get autoremove -y >/dev/null 2>&1
 
-          echo ">>> 清理大文件"
-          sudo rm -rf /usr/local/share/powershell
-          sudo rm -rf /usr/local/share/chromium
-          sudo rm -rf /usr/local/share/edge
+          # 清理大文件
+          sudo rm -rf /usr/local/share/powershell >/dev/null 2>&1
+          sudo rm -rf /usr/local/share/chromium >/dev/null 2>&1
+          sudo rm -rf /usr/local/share/edge >/dev/null 2>&1
 
-          echo ">>> 清理日志"
-          sudo rm -rf /var/log/*
+          # 清理日志
+          sudo rm -rf /var/log/* >/dev/null 2>&1
 
           echo ">>> 当前磁盘空间"
           df -hT
@@ -409,8 +402,16 @@ jobs:
         timeout-minutes: 30
         run: |
           cd openwrt
-          ./scripts/feeds update -a || { echo "❌ 更新 Feeds 失败"; exit 1; }
-          ./scripts/feeds install -a || { echo "❌ 安装 Feeds 失败"; exit 1; }
+          ./scripts/feeds update -a >feeds_update.log 2>&1 || {
+            echo "❌ 更新 Feeds 失败"
+            tail -n 50 feeds_update.log
+            exit 1
+          }
+          ./scripts/feeds install -a >feeds_install.log 2>&1 || {
+            echo "❌ 安装 Feeds 失败"
+            tail -n 50 feeds_install.log
+            exit 1
+          }
 
       - name: 安装iStore商店
         if: (github.event.inputs.istore == 'true')
@@ -468,13 +469,15 @@ jobs:
       - name: 下载源码
         run: |
           cd openwrt
-          make download -j$(nproc)
+          make download -j$(nproc) >download.log 2>&1 || {
+            echo "❌ 下载源码失败"
+            tail -n 50 download.log
+            exit 1
+          }
 
-      - name: 删除诊断日志和临时运行器缓存
+      - name: 诊断 Runner _diag 空间占用
         run: |
-          sudo rm -rf /home/runner/actions-runner/cached/_diag/*
-          sudo rm -rf /home/runner/actions-runner/_work/_temp/*
-          sudo rm -rf /home/runner/actions-runner/_work/_tool/*
+          du -sh /home/runner/actions-runner/cached/_diag 2>/dev/null || echo "_diag 不存在"
 
       - name: 编译固件
         id: compile
