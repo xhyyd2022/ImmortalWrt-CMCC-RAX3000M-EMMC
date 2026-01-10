@@ -490,24 +490,18 @@ jobs:
         id: compile
         run: |
           cd openwrt
-          echo "🚀 正在编译固件... (仅输出进度和致命错误)"
+          echo "🚀 正在编译固件..."
 
-          # 核心过滤逻辑：
-          # 1. 匹配 "make[数字] -C 路径 compile" -> 显示当前进度
-          # 2. 匹配 "failed to build" -> 显示致命报错
-          # 3. 忽略所有中间产生的 error: 或警告
+          make -j$(nproc) V=s > build.log 2>&1 & pid=$!
+          # 实时从 build.log 抽取少量进度
+          tail -f build.log | grep --line-buffered -Ei "make\[[0-9]+\].*-C.*compile|failed to build" & watcher=$!
 
-          stdbuf -oL make -j$(nproc) 2>&1 | tee build.log | \
-          grep --line-buffered -Ei "make\[[0-9]+\].*-C.*compile|failed to build" || true
-
-          # 检查编译状态
-          RET_VAL=${PIPESTATUS[0]}
-
-          if [ $RET_VAL -ne 0 ]; then
-            echo -e "\n----------------------------------------------------------------"
-            echo "❌ 编译因上述 ERROR 中断。"
-            echo "提示：详细报错已在 build.log 中，或者请检查上方显示的包名。"
-            echo "----------------------------------------------------------------"
+          wait $pid
+          RET=$?
+          kill $watcher || true
+          if [ $RET -ne 0 ]; then
+            echo "❌ 编译失败！最后 100 行如下："
+            tail -n 100 build.log
             exit 1
           fi
 
