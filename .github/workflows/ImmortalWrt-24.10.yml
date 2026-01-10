@@ -270,6 +270,16 @@ jobs:
           sudo mkdir -p /workdir
           sudo chown $USER:$GROUPS /workdir
 
+      - name: 扩大磁盘空间
+        uses: easimon/maximize-build-space@v10
+        with:
+          remove-dotnet: true
+          remove-android: true
+          remove-haskell: true
+          remove-codeql: true
+          remove-docker-images: true
+          root-reserve-mb: 512
+
       - name: 清理磁盘空间
         run: |
           # 清理预装软件
