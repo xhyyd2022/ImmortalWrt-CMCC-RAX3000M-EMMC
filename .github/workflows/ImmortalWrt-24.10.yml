@@ -476,15 +476,36 @@ jobs:
       - name: 下载源码包
         run: |
           cd openwrt
-          # 使用 stdbuf 和 grep 实时显示下载进度
-          stdbuf -oL make download -j$(nproc) 2>&1 | grep --line-buffered "download" || true
-          # 获取 make download 的真实退出状态
-          RET_VAL=${PIPESTATUS[0]}
-          if [ $RET_VAL -ne 0 ]; then
-            echo "❌ 源码下载失败，退出码: $RET_VAL"
+          make download -j$(nproc) >download.log 2>&1 & pid=$!
+
+          # 后台下载
+          make download -j$(nproc) > download.log 2>&1 & pid=$!
+
+          # 等待 download.log 出现
+          while [ ! -f download.log ]; do
+            sleep 0.2
+          done
+
+          # 实时抽取进度
+          tail -F download.log | grep --line-buffered "download" & watcher=$!
+
+          # 实时抽取少量进度
+          tail -F download.log | grep --line-buffered "download" &
+          watcher=$!
+
+          wait $pid
+          RET=$?
+
+          kill $watcher || true
+
+          if [ $RET -ne 0 ]; then
+            echo "❌ 源码下载失败！最后 50 行如下："
+            tail -n 50 download.log
             exit 1
           fi
-          echo "✅ 所有源码下载完成（或已通过缓存恢复）"
+
+          echo "✅ 所有源码下载完成"
+
 
       - name: 编译固件
         id: compile
@@ -492,13 +513,36 @@ jobs:
           cd openwrt
           echo "🚀 正在编译固件..."
 
+          # 启动后台监控
+          (
+            while true; do
+              echo "📦 当前磁盘空间："
+              df -hT / | tail -n 1
+              echo "🗂️  _diag 目录大小："
+              du -sh /home/runner/actions-runner/cached/_diag 2>/dev/null || echo "_diag 不存在"
+              echo "----------------------------------------"
+              sleep 60
+            done
+          ) &
+          monitor_pid=$!
+
+          # 后台编译
           make -j$(nproc) V=s > build.log 2>&1 & pid=$!
+
+          # 等待 build.log 出现
+          while [ ! -f build.log ]; do
+            sleep 0.2
+          done
+
           # 实时从 build.log 抽取少量进度
-          tail -f build.log | grep --line-buffered -Ei "make\[[0-9]+\].*-C.*compile|failed to build" & watcher=$!
+          tail -F build.log | grep --line-buffered -Ei "make\[[0-9]+\].*-C.*compile|failed to build" & watcher=$!
 
           wait $pid
           RET=$?
+
           kill $watcher || true
+          kill $monitor_pid || true
+
           if [ $RET -ne 0 ]; then
             echo "❌ 编译失败！最后 100 行如下："
             tail -n 100 build.log
