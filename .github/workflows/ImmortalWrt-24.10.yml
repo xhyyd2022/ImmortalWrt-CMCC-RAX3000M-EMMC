@@ -311,6 +311,8 @@ jobs:
           ls -R scripts || echo "scripts 不在当前目录"
           echo "列出 openwrt/scripts："
           ls -R openwrt/scripts || echo "openwrt/scripts 不存在"
+          echo ">>> 搜索仓库文件" find /home/runner -maxdepth 4 -type d -name "scripts"
+          ls -l
 
       - name: 扩容 /tmp 到 4GB
         run: |
