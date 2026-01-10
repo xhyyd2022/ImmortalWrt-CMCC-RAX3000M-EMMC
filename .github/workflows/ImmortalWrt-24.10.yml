@@ -338,6 +338,7 @@ jobs:
           path: openwrt/staging_dir/host/ccache
           key: ccache-${{ github.event.inputs.device_model }}-${{ env.REPO_BRANCH }}
           restore-keys: |
+            ccache-${{ github.event.inputs.device_model }}-${{ env.REPO_BRANCH }}-
             ccache-${{ github.event.inputs.device_model }}-
 
       - name: 统一配置 ccache
