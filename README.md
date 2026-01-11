@@ -55,8 +55,11 @@
   - 适用场景：主路由如`CMCC RAX3000M EMMC`性能一般，主要负责拨号和管理，在性能较好的从路由上进行相应的流量处理，不影响局域网的其它普通设备上网。仅当从路由失联后，主路由才会接管对应流量，作为后备处理，从路由恢复后又释放虚拟IP，让所有标签流量走从路由
 
 ## 源码
+### main分支
 - immortalwrt官方仓库：[immortalwrt](https://github.com/immortalwrt/immortalwrt)
 - immortalwrt官方分支：[openwrt-24.10](https://github.com/immortalwrt/immortalwrt/tree/openwrt-24.10)
+### padavanonly-mt798x-6.6分支
 - padavanonly源码仓库：[immortalwrt-mt798x-24.10](https://github.com/padavanonly/immortalwrt-mt798x-24.10)
 - padavanonly仓库分支：[openwrt-24.10-6.6](https://github.com/padavanonly/immortalwrt-mt798x-6.6/tree/openwrt-24.10-6.6)
-- 原工作流：[ImWRT-798X](https://github.com/hhCodingCat/ImWRT-798X)
+### 工作流
+- 参考工作流：[ImWRT-798X](https://github.com/hhCodingCat/ImWRT-798X)
