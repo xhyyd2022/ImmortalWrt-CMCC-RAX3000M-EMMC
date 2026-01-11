@@ -504,10 +504,10 @@ jobs:
           cd openwrt
           echo "🚀 正在编译固件..."
 
-          # 启动后台监控（输出到 stderr）
+          # 启动后台监控
           (
             while true; do
-              echo "📦 磁盘：$(df -hT "${GITHUB_WORKSPACE}" | awk 'NR==2{print $3 "/" $5 " used (" $6 ")"}')" >&2
+              echo "📦 磁盘：$(df -h "${GITHUB_WORKSPACE}" | awk 'NR==2{print $3 "/" $2 " used (" $5 ")"}')" >&2
               sleep 300
             done
           ) &
