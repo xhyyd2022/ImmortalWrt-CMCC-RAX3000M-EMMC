@@ -743,6 +743,19 @@ jobs:
           gh cache delete "${{ env.REPO_PATH }}-${{ env.REPO_BRANCH }}-last-checked-sha" \
             --repo ${{ github.repository }}
           sleep 5
+
+          PREFIX="ccache-${{ github.event.inputs.device_model }}-${{ env.REPO_BRANCH }}"
+          echo "清理缓存前："
+          gh cache list --json id,key,createdAt | jq -r '.[] | "\(.createdAt) \(.key) \(.id)"'
+
+          # 找出所有匹配的缓存，按创建时间倒序排序，跳过最新 3 个
+          gh cache list --json id,key,createdAt \
+            | jq -r '.[] | select(.key | startswith("'"$PREFIX"'")) | "\(.createdAt) \(.id)"' \
+            | sort -r \
+            | tail -n +2 \
+            | awk '{print $2}' \
+            | xargs -I {} gh cache delete {} --yes
+
           gh cache list
 
       - name: 保存此次提交sha缓存
