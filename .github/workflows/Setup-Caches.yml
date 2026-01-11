@@ -70,6 +70,30 @@ jobs:
             echo "UPDATE_CHECKED_SHA=false" >> $GITHUB_ENV
           fi
 
+      - name: 删除指定缓存
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          echo "当前的缓存列表"
+          gh cache list
+
+          if [ -n "${{ env.CUSTOM_LAST_BUILD_SHA }}" ]; then
+            echo "删除 last-build-sha 缓存"
+            gh cache delete "${{ env.REPO_PATH }}-${{ env.REPO_BRANCH }}-last-build-sha" \
+              --repo ${{ github.repository }}
+          fi
+
+          if [ -n "${{ env.CUSTOM_LAST_CHECKED_SHA }}" ]; then
+            echo "删除 last-checked-sha 缓存"
+            gh cache delete "${{ env.REPO_PATH }}-${{ env.REPO_BRANCH }}-last-checked-sha" \
+              --repo ${{ github.repository }}
+          fi
+
+          sleep 5
+          echo "删除后缓存列表："
+          gh cache list
+
       - name: 设置 last_checked_sha 缓存
         if: env.UPDATE_CHECKED_SHA == 'true'
         uses: actions/cache@v4
