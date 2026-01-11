@@ -538,6 +538,27 @@ jobs:
           echo "缓存目录大小："
           du -sh openwrt/staging_dir/host/ccache || true
 
+      - name: 调试：查找 ccache 目录
+        run: |
+          echo ">>> which ccache"
+          which ccache || true
+
+          echo ">>> ccache -p | grep dir"
+          ccache -p | grep dir || true
+
+          echo ">>> 搜索可能的 ccache 目录"
+          find $HOME -maxdepth 3 -type d -name "ccache" 2>/dev/null || true
+          find openwrt -maxdepth 5 -type d -name "ccache" 2>/dev/null || true
+
+          echo ">>> 打印 ccache 配置"
+          ccache -p || true
+
+          echo ">>> 打印环境变量 PATH"
+          echo "$PATH"
+
+          du -sh openwrt/staging_dir/host/ccache || true
+          du -sh ~/.cache/ccache || true
+
       - name: 保存编译缓存
         if: steps.compile.outputs.status == 'success'
         uses: actions/cache@v4
