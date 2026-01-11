@@ -332,29 +332,6 @@ jobs:
 
           ln -sf "${{ github.workspace }}/workdir/openwrt" "${{ github.workspace }}/openwrt"
 
-      - name: 准备 ccache 缓存
-        uses: actions/cache@v4
-        with:
-          path: openwrt/staging_dir/host/ccache
-          key: ccache-${{ github.event.inputs.device_model }}-${{ env.REPO_BRANCH }}
-          restore-keys: |
-            ccache-${{ github.event.inputs.device_model }}-${{ env.REPO_BRANCH }}-
-            ccache-${{ github.event.inputs.device_model }}-
-
-      - name: 统一配置 ccache
-        run: |
-          echo "PATH=/usr/lib/ccache:$PATH" >> $GITHUB_ENV
-
-          # ccache 性能优化
-          ccache -M 5G
-          ccache -o compression=true
-          ccache -o hash_dir=false
-          ccache -z # 清空统计，查看本次命中率
-
-          # 强制接管 OpenWrt 编译体系
-          cd openwrt
-          echo "CONFIG_CCACHE=y" >> .config
-
       - name: 获取源码提交 SHA
         run: |
           if [ -f last_checked_sha.txt ]; then
@@ -402,6 +379,7 @@ jobs:
 
           # 写入环境变量
           echo "SOURCE_COMMIT_URL=$COMMIT_URL" >> $GITHUB_ENV
+          echo "LATEST_SHA=$CURRENT_SHA" >> $GITHUB_ENV
 
       - name: 移动last_checked_sha到根目录
         run: |
@@ -493,6 +471,29 @@ jobs:
           cd openwrt
           make defconfig
 
+      - name: 恢复编译缓存
+        uses: actions/cache@v4
+        with:
+          path: openwrt/staging_dir/host/ccache
+          key: ccache-${{ github.event.inputs.device_model }}-${{ env.REPO_BRANCH }}-${{ env.LATEST_SHA }}
+          restore-keys: |
+            ccache-${{ github.event.inputs.device_model }}-${{ env.REPO_BRANCH }}-
+            ccache-${{ github.event.inputs.device_model }}-
+
+      - name: 统一配置 ccache
+        run: |
+          echo "PATH=/usr/lib/ccache:$PATH" >> $GITHUB_ENV
+
+          # ccache 性能优化
+          ccache -M 5G
+          ccache -o compression=true
+          ccache -o hash_dir=false
+          ccache -z # 清空统计，查看本次命中率
+
+          # 强制接管 OpenWrt 编译体系
+          cd openwrt
+          echo "CONFIG_CCACHE=y" >> .config
+
       - name: 下载源码包
         run: |
           cd openwrt
@@ -536,6 +537,13 @@ jobs:
           ccache -s || true
           echo "缓存目录大小："
           du -sh openwrt/staging_dir/host/ccache || true
+
+      - name: 保存编译缓存
+        if: steps.compile.outputs.status == 'success'
+        uses: actions/cache@v4
+        with:
+          path: openwrt/staging_dir/host/ccache
+          key: ccache-${{ github.event.inputs.device_model }}-${{ env.REPO_BRANCH }}-${{ env.LATEST_SHA }}
 
       - name: 上传编译日志
         if: failure()
