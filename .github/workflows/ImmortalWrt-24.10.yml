@@ -442,6 +442,8 @@ jobs:
 
           # 注入目标设备型号
           echo "CONFIG_TARGET_mediatek_filogic_DEVICE_$DEVICE_MODEL=y" >> .config
+
+          # 打开CCACHE
           echo "CONFIG_CCACHE=y" >> .config
 
           # 执行 DIY Part2 脚本
@@ -480,19 +482,6 @@ jobs:
             ccache-${{ github.event.inputs.device_model }}-${{ env.REPO_BRANCH }}-
             ccache-${{ github.event.inputs.device_model }}-
 
-      - name: 配置 ccache
-        run: |
-          cd openwrt
-          # 确保环境变量使用绝对路径
-          CCACHE_OBJPATH="${{ github.workspace }}/openwrt/staging_dir/host/ccache"
-          mkdir -p "$CCACHE_OBJPATH"
-
-          echo "CCACHE_DIR=$CCACHE_OBJPATH" >> $GITHUB_ENV
-          echo "CCACHE_COMPRESS=1" >> $GITHUB_ENV
-          echo "CCACHE_MAXSIZE=5G" >> $GITHUB_ENV
-
-          # 强制 OpenWrt 的 Makefile 使用指定的路径
-          echo "CONFIG_CCACHE_DIR=\"$CCACHE_OBJPATH\"" >> .config
       - name: 下载源码包
         run: |
           cd openwrt
@@ -533,13 +522,13 @@ jobs:
       - name: 检查 ccache 写入情况
         run: |
           # 检查目录是否存在
-          ls -ld $CCACHE_DIR || echo "目录不存在！"
+          ls -ld openwrt/staging_dir/host/ccache || echo "目录不存在！"
           # 显示统计信息
           ccache -s
-          # 显示当前 ccache 的配置，确认路径是否真的是你设定的那个
+          # 显示当前 ccache 的配置
           ccache -p | grep cache_dir
           # 显示缓存空间
-          du -sh $CCACHE_DIR || true
+          du -sh openwrt/staging_dir/host/ccache || true
 
       - name: 调试：查找 ccache 目录
         run: |
@@ -772,13 +761,13 @@ jobs:
           echo "清理缓存前："
           gh cache list --json id,key,createdAt | jq -r '.[] | "\(.createdAt) \(.key) \(.id)"'
 
-          # 找出所有匹配的缓存，按创建时间倒序排序，跳过最新 3 个
+          # 找出所有匹配的缓存，只保留最新的缓存
           gh cache list --json id,key,createdAt \
             | jq -r '.[] | select(.key | startswith("'"$PREFIX"'")) | "\(.createdAt) \(.id)"' \
             | sort -r \
             | tail -n +2 \
             | awk '{print $2}' \
-            | xargs -I {} gh cache delete {} --yes
+            | xargs -I {} gh cache delete {}
 
           gh cache list
 
