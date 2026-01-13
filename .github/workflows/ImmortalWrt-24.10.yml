@@ -503,6 +503,9 @@ jobs:
           cd openwrt
           echo "🚀 正在编译固件..."
 
+          # 提前创建空日志文件，避免 tail -F 因文件不存在退出
+          : > build.log
+
           # 缓存文件路径
           CACHE_FILE="../disk_growth.txt"
 
@@ -531,19 +534,18 @@ jobs:
             INTERVAL=60   # 每 60 秒至少输出一次硬盘状态
             STAGE="初始化"
 
-            # 事件循环：监听 build.log
-            tail -F build.log | while read -r LINE; do
+            # 事件循环：监听 build.log（失败也不影响心跳循环）
+            tail -F build.log 2>/dev/null | while read -r LINE; do
               echo "$LINE" > /tmp/last_line
             done &
-            TAIL_PID=$!
 
             # 心跳循环：每秒检查一次
             while true; do
               NOW=$(date +%s)
-              LINE=$(cat /tmp/last_line 2>/dev/null)
+              LINE=$(cat /tmp/last_line 2>/dev/null || echo "")
 
               # -------------------------
-              # 阶段识别
+              # 阶段识别（有日志才识别，没有就保持上一次）
               # -------------------------
               if echo "$LINE" | grep -q "tools/compile"; then
                 STAGE="Tools (10%)"
@@ -568,7 +570,7 @@ jobs:
               echo "$RUNTIME_MAX" > /tmp/max_growth_runtime
 
               # -------------------------
-              # 包完成事件
+              # 包完成事件（*.installed 数量变化）
               # -------------------------
               DONE=$(find build_dir/target-*/stamp -name "*.installed" 2>/dev/null | wc -l)
 
@@ -577,6 +579,7 @@ jobs:
                 LAST_OUTPUT_TIME=$NOW
 
                 TOTAL=$(find package feeds -name Makefile | wc -l)
+                [ "$TOTAL" -eq 0 ] && TOTAL=1
                 PKG_PERCENT=$((DONE * 100 / TOTAL))
                 PERCENT=$((DELTA * 100 / RUNTIME_MAX))
                 [ $PERCENT -gt 100 ] && PERCENT=100
@@ -589,12 +592,13 @@ jobs:
               fi
 
               # -------------------------
-              # 硬盘定时事件
+              # 硬盘定时事件（即使没有包事件也会触发）
               # -------------------------
               if [ $((NOW - LAST_OUTPUT_TIME)) -ge $INTERVAL ]; then
                 LAST_OUTPUT_TIME=$NOW
 
                 TOTAL=$(find package feeds -name Makefile | wc -l)
+                [ "$TOTAL" -eq 0 ] && TOTAL=1
                 PKG_PERCENT=$((DONE * 100 / TOTAL))
                 PERCENT=$((DELTA * 100 / RUNTIME_MAX))
                 [ $PERCENT -gt 100 ] && PERCENT=100
