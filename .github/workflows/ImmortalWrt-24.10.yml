@@ -675,7 +675,7 @@ jobs:
           # -------------------------
           # 编译并记录日志
           # -------------------------
-          make -j$(nproc) V=s 2>&1 | tee build.log
+          make -j$(nproc) 2>&1 | tee build.log
           RET=${PIPESTATUS[0]}
 
           kill $monitor_pid || true

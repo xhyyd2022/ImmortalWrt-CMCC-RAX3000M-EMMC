@@ -15,7 +15,6 @@
 rm -rf feeds/luci/applications/luci-app-openclash
 
 # 添加 OpenClash 官方源
-# 使用 dev 分支，因为 24.10 固件使用的是 nftables (fw4)，dev 分支对此支持最稳定
 git clone --depth=1 -b master https://github.com/vernesong/OpenClash.git package/luci-app-openclash
 
 # 修正权限
