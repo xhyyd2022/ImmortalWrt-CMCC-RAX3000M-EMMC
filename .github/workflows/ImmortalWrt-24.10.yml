@@ -231,13 +231,13 @@ jobs:
       - name: 设置 REPO_PATH
         run: echo "REPO_PATH=$(echo $REPO_URL | sed -E 's#https://github.com/##;s#/$##')" >> $GITHUB_ENV
 
-      - name: 获取上次提交sha缓存
+      - name: 获取上次本仓库哈希缓存
         uses: actions/cache@v4
         with:
           path: last_build_sha.txt
           key: ${{ env.REPO_PATH }}-${{ env.REPO_BRANCH }}-last-build-sha
 
-      - name: 获取 last_checked_sha 缓存
+      - name: 获取上次源仓库哈希缓存
         uses: actions/cache@v4
         with:
           path: last_checked_sha.txt
@@ -914,7 +914,7 @@ jobs:
           fi
           echo "Release 创建成功: $RELEASE_TAG"
 
-      - name: 保存此次提交sha
+      - name: 保存本仓库哈希
         run: |
           echo "$(git rev-parse HEAD)" > last_build_sha.txt
 
@@ -964,13 +964,13 @@ jobs:
 
           gh cache list
 
-      - name: 保存此次提交sha缓存
+      - name: 保存本仓库哈希缓存
         uses: actions/cache@v4
         with:
           path: last_build_sha.txt
           key: ${{ env.REPO_PATH }}-${{ env.REPO_BRANCH }}-last-build-sha
 
-      - name: 保存 last_checked_sha 缓存
+      - name: 保存源仓库哈希缓存
         uses: actions/cache@v4
         with:
           path: last_checked_sha.txt
