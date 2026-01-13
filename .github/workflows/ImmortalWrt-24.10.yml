@@ -587,22 +587,18 @@ jobs:
             RUNTIME_MAX=$MAX_GROWTH
             LAST_DONE=0
             LAST_OUTPUT_TIME=$(date +%s)
-            INTERVAL=300   # 每5分钟至少输出一次硬盘状态
+            INTERVAL=300
             STAGE="初始化"
 
-            # 事件循环：监听 build.log（失败也不影响心跳循环）
             tail -F build.log 2>/dev/null | while read -r LINE; do
               echo "$LINE" > /tmp/last_line
             done &
 
-            # 心跳循环：每秒检查一次
             while true; do
               NOW=$(date +%s)
               LINE=$(cat /tmp/last_line 2>/dev/null || echo "")
 
-              # -------------------------
-              # 阶段识别（有日志才识别，没有就保持上一次）
-              # -------------------------
+              # 阶段识别
               if echo "$LINE" | grep -q "tools/compile"; then
                 STAGE="Tools (10%)"
               elif echo "$LINE" | grep -q "toolchain/compile"; then
@@ -614,10 +610,18 @@ jobs:
               elif echo "$LINE" | grep -q "package/install"; then
                 STAGE="Install (90%)"
               fi
+              [ -z "$STAGE" ] && STAGE="编译中"
 
-              # -------------------------
-              # 实时更新磁盘增长
-              # -------------------------
+              # 精准统计已编译包数量（只统计 package 编译）
+              COMPILE_COUNT=$(grep -c 'make\[3\].*-C package' build.log 2>/dev/null || echo 0)
+
+              # 统计总包数
+              TOTAL=$(find package feeds -name Makefile | wc -l)
+              [ "$TOTAL" -eq 0 ] && TOTAL=1
+
+              PKG_PERCENT=$((COMPILE_COUNT * 100 / TOTAL))
+
+              # 磁盘增长
               USED=$(df -B1 "${GITHUB_WORKSPACE}" | awk 'NR==2{print $3}')
               DELTA=$((USED - START))
               if [ $DELTA -gt $RUNTIME_MAX ]; then
@@ -625,45 +629,33 @@ jobs:
               fi
               echo "$RUNTIME_MAX" > /tmp/max_growth_runtime
 
-              # -------------------------
-              # 包完成事件（*.installed 数量变化）
-              # -------------------------
-              DONE=$(find build_dir/target-*/stamp -name "*.installed" 2>/dev/null | wc -l)
-
-              if [ "$DONE" -ne "$LAST_DONE" ]; then
-                LAST_DONE=$DONE
+              # 包事件触发输出
+              if [ "$COMPILE_COUNT" -ne "$LAST_DONE" ]; then
+                LAST_DONE=$COMPILE_COUNT
                 LAST_OUTPUT_TIME=$NOW
 
-                TOTAL=$(find package feeds -name Makefile | wc -l)
-                [ "$TOTAL" -eq 0 ] && TOTAL=1
-                PKG_PERCENT=$((DONE * 100 / TOTAL))
                 PERCENT=$((DELTA * 100 / RUNTIME_MAX))
                 [ $PERCENT -gt 100 ] && PERCENT=100
 
-                echo "📦 磁盘：$(df -h "${GITHUB_WORKSPACE}" | awk 'NR==2{print $3 "/" $2 " used (" $5 ")"}')"
-                echo "📊 磁盘估算进度：${PERCENT}%"
+                echo "📦 磁盘信息：$(df -h "${GITHUB_WORKSPACE}" | awk 'NR==2{print $3 "/" $2 " used (" $5 ")"}')"
+                echo "📊 估算进度：${PERCENT}%"
                 echo "📌 当前阶段：${STAGE}"
-                echo "📦 已编译包：${DONE} / ${TOTAL}（${PKG_PERCENT}%）"
+                echo "📦 已编译包：${COMPILE_COUNT} / ${TOTAL}（${PKG_PERCENT}%）"
                 echo "----------------------------------------"
               fi
 
-              # -------------------------
-              # 硬盘定时事件（即使没有包事件也会触发）
-              # -------------------------
+              # 定时刷新
               if [ $((NOW - LAST_OUTPUT_TIME)) -ge $INTERVAL ]; then
                 LAST_OUTPUT_TIME=$NOW
 
-                TOTAL=$(find package feeds -name Makefile | wc -l)
-                [ "$TOTAL" -eq 0 ] && TOTAL=1
-                PKG_PERCENT=$((DONE * 100 / TOTAL))
                 PERCENT=$((DELTA * 100 / RUNTIME_MAX))
                 [ $PERCENT -gt 100 ] && PERCENT=100
 
                 echo "⏳ 长时间无包事件，刷新硬盘状态…"
-                echo "📦 磁盘：$(df -h "${GITHUB_WORKSPACE}" | awk 'NR==2{print $3 "/" $2 " used (" $5 ")"}')"
-                echo "📊 磁盘估算进度：${PERCENT}%"
+                echo "📦 磁盘信息：$(df -h "${GITHUB_WORKSPACE}" | awk 'NR==2{print $3 "/" $2 " used (" $5 ")"}')"
+                echo "📊 估算进度：${PERCENT}%"
                 echo "📌 当前阶段：${STAGE}"
-                echo "📦 已编译包：${DONE} / ${TOTAL}（${PKG_PERCENT}%）"
+                echo "📦 已编译包：${COMPILE_COUNT} / ${TOTAL}（${PKG_PERCENT}%）"
                 echo "----------------------------------------"
               fi
 
