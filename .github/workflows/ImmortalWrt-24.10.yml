@@ -589,6 +589,7 @@ jobs:
             LAST_OUTPUT_TIME=$(date +%s)
             INTERVAL=300
             STAGE="初始化"
+            LAST_COMPILED=""
 
             tail -F build.log 2>/dev/null | while read -r LINE; do
               echo "$LINE" > /tmp/last_line
@@ -598,30 +599,36 @@ jobs:
               NOW=$(date +%s)
               LINE=$(cat /tmp/last_line 2>/dev/null || echo "")
 
-              # 阶段识别
-              if echo "$LINE" | grep -q "tools/compile"; then
+              # 阶段识别（make[2]）
+              if echo "$LINE" | grep -q "make\[2\].*tools/compile"; then
                 STAGE="Tools (10%)"
-              elif echo "$LINE" | grep -q "toolchain/compile"; then
+              elif echo "$LINE" | grep -q "make\[2\].*toolchain/compile"; then
                 STAGE="Toolchain (25%)"
-              elif echo "$LINE" | grep -q "target/linux"; then
+              elif echo "$LINE" | grep -q "make\[2\].*target/linux"; then
                 STAGE="Target (45%)"
-              elif echo "$LINE" | grep -q "package/compile"; then
+              elif echo "$LINE" | grep -q "make\[2\].*package/compile"; then
                 STAGE="Package (70%)"
-              elif echo "$LINE" | grep -q "package/install"; then
+              elif echo "$LINE" | grep -q "make\[2\].*package/install"; then
                 STAGE="Install (90%)"
               fi
-              [ -z "$STAGE" ] && STAGE="编译中"
 
-              # 精准统计已编译包数量（只统计 package 编译）
+              # compiled 输出（make[3]）
+              if echo "$LINE" | grep -qE "make\[[0-9]+\].*-C .+ compile"; then
+                CURRENT=$(echo "$LINE" | sed -n 's/.*-C \(.*\) compile.*/\1/p')
+                if [ "$CURRENT" != "$LAST_COMPILED" ]; then
+                  echo "🔧 $CURRENT compiled"
+                  LAST_COMPILED="$CURRENT"
+                  LAST_OUTPUT_TIME=$NOW
+                fi
+              fi
+
+              # 统计 package 编译数量
               COMPILE_COUNT=$(grep -c 'make\[3\].*-C package' build.log 2>/dev/null || echo 0)
 
-              # 统计总包数
               TOTAL=$(find package feeds -name Makefile | wc -l)
               [ "$TOTAL" -eq 0 ] && TOTAL=1
-
               PKG_PERCENT=$((COMPILE_COUNT * 100 / TOTAL))
 
-              # 磁盘增长
               USED=$(df -B1 "${GITHUB_WORKSPACE}" | awk 'NR==2{print $3}')
               DELTA=$((USED - START))
               if [ $DELTA -gt $RUNTIME_MAX ]; then
@@ -629,7 +636,7 @@ jobs:
               fi
               echo "$RUNTIME_MAX" > /tmp/max_growth_runtime
 
-              # 包事件触发输出
+              # 包事件
               if [ "$COMPILE_COUNT" -ne "$LAST_DONE" ]; then
                 LAST_DONE=$COMPILE_COUNT
                 LAST_OUTPUT_TIME=$NOW
@@ -644,7 +651,7 @@ jobs:
                 echo "----------------------------------------"
               fi
 
-              # 定时刷新
+              # 定时事件
               if [ $((NOW - LAST_OUTPUT_TIME)) -ge $INTERVAL ]; then
                 LAST_OUTPUT_TIME=$NOW
 
