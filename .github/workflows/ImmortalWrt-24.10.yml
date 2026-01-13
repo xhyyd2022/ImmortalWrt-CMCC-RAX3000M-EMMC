@@ -111,7 +111,7 @@ jobs:
       - name: 设置 REPO_PATH
         run: echo "REPO_PATH=$(echo $REPO_URL | sed -E 's#https://github.com/##;s#/$##')" >> $GITHUB_ENV
 
-      - name: 获取 last_checked_sha 缓存
+      - name: 获取上次源仓库检查哈希缓存
         id: cache-sha
         uses: actions/cache@v4
         with:
@@ -481,6 +481,13 @@ jobs:
           restore-keys: |
             ccache-${{ github.event.inputs.device_model }}-${{ env.REPO_BRANCH }}-
 
+      - name: 获取磁盘增长缓存
+        id: cache-disk_growth
+        uses: actions/cache@v4
+        with:
+          path: disk_growth.txt
+          key: ${{ env.REPO_PATH }}-${{ env.REPO_BRANCH }}-disk_growth
+
       - name: 下载源码包
         run: |
           cd openwrt
@@ -496,15 +503,54 @@ jobs:
           cd openwrt
           echo "🚀 正在编译固件..."
 
+          # 缓存文件路径
+          CACHE_FILE="../disk_growth.txt"
+
+          # 默认最大增长（40GB）
+          DEFAULT_MAX=$((40 * 1024 * 1024 * 1024))
+
+          # 如果缓存存在 → 读取内容
+          if [ -f "$CACHE_FILE" ]; then
+            MAX_GROWTH=$(cat "$CACHE_FILE")
+            echo "📁 已加载历史磁盘增长值：$(echo $((MAX_GROWTH/1024/1024/1024))) GB"
+          else
+            MAX_GROWTH=$DEFAULT_MAX
+            echo "📁 未找到历史缓存，使用默认最大增长：40GB"
+          fi
+
+          # 记录初始磁盘占用
+          START=$(df -B1 "${GITHUB_WORKSPACE}" | awk 'NR==2{print $3}')
+
           # 启动后台监控
           (
+            RUNTIME_MAX=$MAX_GROWTH
+
             while true; do
-              echo "📦 磁盘：$(df -h "${GITHUB_WORKSPACE}" | awk 'NR==2{print $3 "/" $2 " used (" $5 ")"}')" >&2
-              sleep 300
+              USED=$(df -B1 "${GITHUB_WORKSPACE}" | awk 'NR==2{print $3}')
+              DELTA=$((USED - START))
+
+              # 动态更新最大增长（仅本次运行）
+              if [ $DELTA -gt $RUNTIME_MAX ]; then
+                RUNTIME_MAX=$DELTA
+              fi
+
+              # 写入临时文件供外层读取
+              echo "$RUNTIME_MAX" > /tmp/max_growth_runtime
+
+              # 计算进度
+              PERCENT=$((DELTA * 100 / RUNTIME_MAX))
+              [ $PERCENT -gt 100 ] && PERCENT=100
+
+              echo "📦 磁盘：$(df -h "${GITHUB_WORKSPACE}" | awk 'NR==2{print $3 "/" $2 " used (" $5 ")"}')"
+              echo "📊 磁盘估算进度：${PERCENT}%（最大增长参考：$((RUNTIME_MAX/1024/1024/1024))GB）"
+              echo "----------------------------------------"
+
+              sleep 60
             done
           ) &
           monitor_pid=$!
 
+          # 编译并记录日志
           make -j$(nproc) || make -j4 || make -j1 V=s
           RET=$?
 
@@ -515,6 +561,30 @@ jobs:
           if [ $RET -ne 0 ]; then
             echo "❌ 编译失败！"
             exit 1
+          fi
+
+          # 读取监控中的最终 MAX_GROWTH
+          if [ -f /tmp/max_growth_runtime ]; then
+            MAX_GROWTH=$(cat /tmp/max_growth_runtime)
+          fi
+
+          # 记录最终磁盘增长
+          END=$(df -B1 "${GITHUB_WORKSPACE}" | awk 'NR==2{print $3}')
+          DELTA=$((END - START))
+
+          # 计算变化阈值（1%）
+          THRESHOLD=$((MAX_GROWTH / 100))
+
+          # 计算绝对差值
+          DIFF=$((DELTA - MAX_GROWTH))
+          [ $DIFF -lt 0 ] && DIFF=$(( -DIFF ))
+
+          # 判断是否超过 1%
+          if [ "$DIFF" -gt "$THRESHOLD" ]; then
+            echo "$DELTA" > "$CACHE_FILE"
+            echo "📁 磁盘增长变化超过 1%，已更新缓存为：$(echo $((DELTA/1024/1024/1024))) GB"
+          else
+            echo "📁 变化未超过 1%，不更新缓存"
           fi
 
           echo "status=success" >> $GITHUB_OUTPUT
