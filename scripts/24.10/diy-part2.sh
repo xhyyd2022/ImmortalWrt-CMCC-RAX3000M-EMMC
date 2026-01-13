@@ -22,4 +22,8 @@ else
   echo "警告：$CONFIG_FILE 不存在，跳过 IP 修改"
 fi
 
+# 开启 ccache 并指定路径
+sed -i 's/CONFIG_CCACHE=n/CONFIG_CCACHE=y/g' .config 2>/dev/null || echo "CONFIG_CCACHE=y" >> .config
+echo 'CONFIG_CCACHE_DIR="/home/runner/.ccache"' >> .config
+
 echo "===== diy-part2.sh 执行结束 ====="
