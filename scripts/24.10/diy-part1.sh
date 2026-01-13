@@ -1,10 +1,23 @@
 #!/bin/bash
 #
-# 版权所有 (c) 2019-2020 P3TERX <https://p3terx.com>
+# Copyright (c) 2019-2024 P3TERX <https://p3terx.com>
 #
-# 这是一个自由软件，遵循 MIT 许可证。
-# 更多信息请见 /LICENSE 文件。
+# This is free software, licensed under the MIT License.
+# See /LICENSE for more information.
 #
 # https://github.com/P3TERX/Actions-OpenWrt
-# 文件名: diy-part1.sh
-# 描述: OpenWrt DIY 脚本第一部分 (更新 feeds 之前)
+# File name: diy-part1.sh
+# Description: OpenWrt DIY script part 1 (Before Update feeds)
+#
+
+# 移除 ImmortalWrt 源码中自带的旧版 OpenClash
+# 官方 feed 中的版本往往更新不及时，会导致版本撕裂报错
+rm -rf feeds/luci/applications/luci-app-openclash
+
+# 添加 OpenClash 官方源
+# 使用 dev 分支，因为 24.10 固件使用的是 nftables (fw4)，dev 分支对此支持最稳定
+git clone --depth=1 -b master https://github.com/vernesong/OpenClash.git package/luci-app-openclash
+
+# 修正权限
+# 确保脚本在编译前有正确的执行权限
+chmod -R 755 package/luci-app-openclash
