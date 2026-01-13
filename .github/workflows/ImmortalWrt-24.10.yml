@@ -715,13 +715,13 @@ jobs:
       - name: 检查 ccache 写入情况
         run: |
           # 检查目录是否存在
-          ls -ld /home/runner/work/ccache || echo "目录不存在！"
+          ls -ld /home/runner/.ccache || echo "目录不存在！"
           # 显示统计信息
           ccache -s
           # 显示当前 ccache 的配置
           ccache -p | grep cache_dir
           # 显示缓存空间
-          du -sh /home/runner/work/ccache || true
+          du -sh /home/runner/.ccache || true
 
       - name: 调试：查找 ccache 目录
         run: |
@@ -741,14 +741,14 @@ jobs:
           echo ">>> 打印环境变量 PATH"
           echo "$PATH"
 
-          du -sh /home/runner/work/ccache || true
+          du -sh /home/runner/.ccache || true
           du -sh ~/.cache/ccache || true
 
       - name: 保存编译缓存
         if: steps.compile.outputs.status == 'success'
         uses: actions/cache@v4
         with:
-          path: /home/runner/work/ccache
+          path: /home/runner/.ccache
           key: ccache-${{ github.event.inputs.device_model }}-${{ env.REPO_BRANCH }}-${{ env.LATEST_SHA }}
 
       - name: 上传编译日志

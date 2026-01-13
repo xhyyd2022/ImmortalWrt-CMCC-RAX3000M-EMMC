@@ -23,7 +23,8 @@ else
 fi
 
 # 开启 ccache 并指定路径
-sed -i 's/CONFIG_CCACHE=n/CONFIG_CCACHE=y/g' .config 2>/dev/null || echo "CONFIG_CCACHE=y" >> .config
+sed -i 's/CONFIG_CCACHE=y/CONFIG_CCACHE=y/' .config
+sed -i '/CONFIG_CCACHE_DIR/d' .config
 echo 'CONFIG_CCACHE_DIR="/home/runner/.ccache"' >> .config
 
 echo "===== diy-part2.sh 执行结束 ====="
