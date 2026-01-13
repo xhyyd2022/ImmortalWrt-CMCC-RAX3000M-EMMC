@@ -587,7 +587,7 @@ jobs:
             RUNTIME_MAX=$MAX_GROWTH
             LAST_DONE=0
             LAST_OUTPUT_TIME=$(date +%s)
-            INTERVAL=60   # 每 60 秒至少输出一次硬盘状态
+            INTERVAL=300   # 每5分钟至少输出一次硬盘状态
             STAGE="初始化"
 
             # 事件循环：监听 build.log（失败也不影响心跳循环）
