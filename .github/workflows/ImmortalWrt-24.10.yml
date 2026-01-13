@@ -521,43 +521,105 @@ jobs:
           # 记录初始磁盘占用
           START=$(df -B1 "${GITHUB_WORKSPACE}" | awk 'NR==2{print $3}')
 
-          # 启动后台监控
+          # -------------------------
+          # 启动后台监控（双循环）
+          # -------------------------
           (
             RUNTIME_MAX=$MAX_GROWTH
+            LAST_DONE=0
+            LAST_OUTPUT_TIME=$(date +%s)
+            INTERVAL=60   # 每 60 秒至少输出一次硬盘状态
+            STAGE="初始化"
 
+            # 事件循环：监听 build.log
+            tail -F build.log | while read -r LINE; do
+              echo "$LINE" > /tmp/last_line
+            done &
+            TAIL_PID=$!
+
+            # 心跳循环：每秒检查一次
             while true; do
+              NOW=$(date +%s)
+              LINE=$(cat /tmp/last_line 2>/dev/null)
+
+              # -------------------------
+              # 阶段识别
+              # -------------------------
+              if echo "$LINE" | grep -q "tools/compile"; then
+                STAGE="Tools (10%)"
+              elif echo "$LINE" | grep -q "toolchain/compile"; then
+                STAGE="Toolchain (25%)"
+              elif echo "$LINE" | grep -q "target/linux"; then
+                STAGE="Target (45%)"
+              elif echo "$LINE" | grep -q "package/compile"; then
+                STAGE="Package (70%)"
+              elif echo "$LINE" | grep -q "package/install"; then
+                STAGE="Install (90%)"
+              fi
+
+              # -------------------------
+              # 实时更新磁盘增长
+              # -------------------------
               USED=$(df -B1 "${GITHUB_WORKSPACE}" | awk 'NR==2{print $3}')
               DELTA=$((USED - START))
-
-              # 动态更新最大增长（仅本次运行）
               if [ $DELTA -gt $RUNTIME_MAX ]; then
                 RUNTIME_MAX=$DELTA
               fi
-
-              # 写入临时文件供外层读取
               echo "$RUNTIME_MAX" > /tmp/max_growth_runtime
 
-              # 计算进度
-              PERCENT=$((DELTA * 100 / RUNTIME_MAX))
-              [ $PERCENT -gt 100 ] && PERCENT=100
+              # -------------------------
+              # 包完成事件
+              # -------------------------
+              DONE=$(find build_dir/target-*/stamp -name "*.installed" 2>/dev/null | wc -l)
 
-              echo "📦 磁盘：$(df -h "${GITHUB_WORKSPACE}" | awk 'NR==2{print $3 "/" $2 " used (" $5 ")"}')"
-              echo "📊 磁盘估算进度：${PERCENT}%（最大增长参考：$((RUNTIME_MAX/1024/1024/1024))GB）"
-              echo "----------------------------------------"
+              if [ "$DONE" -ne "$LAST_DONE" ]; then
+                LAST_DONE=$DONE
+                LAST_OUTPUT_TIME=$NOW
 
-              sleep 60
+                TOTAL=$(find package feeds -name Makefile | wc -l)
+                PKG_PERCENT=$((DONE * 100 / TOTAL))
+                PERCENT=$((DELTA * 100 / RUNTIME_MAX))
+                [ $PERCENT -gt 100 ] && PERCENT=100
+
+                echo "📦 磁盘：$(df -h "${GITHUB_WORKSPACE}" | awk 'NR==2{print $3 "/" $2 " used (" $5 ")"}')"
+                echo "📊 磁盘估算进度：${PERCENT}%"
+                echo "📌 当前阶段：${STAGE}"
+                echo "📦 已编译包：${DONE} / ${TOTAL}（${PKG_PERCENT}%）"
+                echo "----------------------------------------"
+              fi
+
+              # -------------------------
+              # 硬盘定时事件
+              # -------------------------
+              if [ $((NOW - LAST_OUTPUT_TIME)) -ge $INTERVAL ]; then
+                LAST_OUTPUT_TIME=$NOW
+
+                TOTAL=$(find package feeds -name Makefile | wc -l)
+                PKG_PERCENT=$((DONE * 100 / TOTAL))
+                PERCENT=$((DELTA * 100 / RUNTIME_MAX))
+                [ $PERCENT -gt 100 ] && PERCENT=100
+
+                echo "⏳ 长时间无包事件，刷新硬盘状态…"
+                echo "📦 磁盘：$(df -h "${GITHUB_WORKSPACE}" | awk 'NR==2{print $3 "/" $2 " used (" $5 ")"}')"
+                echo "📊 磁盘估算进度：${PERCENT}%"
+                echo "📌 当前阶段：${STAGE}"
+                echo "📦 已编译包：${DONE} / ${TOTAL}（${PKG_PERCENT}%）"
+                echo "----------------------------------------"
+              fi
+
+              sleep 1
             done
           ) &
           monitor_pid=$!
 
+          # -------------------------
           # 编译并记录日志
-          make -j$(nproc) || make -j4 || make -j1 V=s
-          RET=$?
+          # -------------------------
+          make -j$(nproc) V=s 2>&1 | tee build.log
+          RET=${PIPESTATUS[0]}
 
-          # 停止监控
           kill $monitor_pid || true
 
-          # 检查编译结果
           if [ $RET -ne 0 ]; then
             echo "❌ 编译失败！"
             exit 1
@@ -575,11 +637,9 @@ jobs:
           # 计算变化阈值（1%）
           THRESHOLD=$((MAX_GROWTH / 100))
 
-          # 计算绝对差值
           DIFF=$((DELTA - MAX_GROWTH))
           [ $DIFF -lt 0 ] && DIFF=$(( -DIFF ))
 
-          # 判断是否超过 1%
           if [ "$DIFF" -gt "$THRESHOLD" ]; then
             echo "$DELTA" > "$CACHE_FILE"
             echo "📁 磁盘增长变化超过 1%，已更新缓存为：$(echo $((DELTA/1024/1024/1024))) GB"
