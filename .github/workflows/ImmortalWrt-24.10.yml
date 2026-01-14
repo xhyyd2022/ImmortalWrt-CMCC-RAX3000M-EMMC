@@ -457,7 +457,7 @@ jobs:
 
       - name: 分区表修改
         run: |
-          cd openwrt
+          cd $GITHUB_WORKSPACE/openwrt
           ls -l target/linux/mediatek/image
           sed -i '/Device\/cmcc_rax3000m_common/,/endef/ s/IMAGE_SIZE := .*/IMAGE_SIZE := 59600m/' \
             target/linux/mediatek/image/filogic.mk
