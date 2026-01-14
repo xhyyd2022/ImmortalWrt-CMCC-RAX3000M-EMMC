@@ -580,15 +580,19 @@ jobs:
               # -------------------------
               # 阶段识别（根据日志内容）
               # -------------------------
-              if echo "$LINE" | grep -q "tools/compile"; then
+              if echo "$LINE" | grep -qE "make\[[0-9]+\].*-C tools/"; then
                 STAGE="${CYAN}Tools (10%)${RESET}"
-              elif echo "$LINE" | grep -q "toolchain/compile"; then
+
+              elif echo "$LINE" | grep -qE "make\[[0-9]+\].*-C toolchain/"; then
                 STAGE="${BLUE}Toolchain (25%)${RESET}"
-              elif echo "$LINE" | grep -q "target/linux"; then
+
+              elif echo "$LINE" | grep -qE "make\[[0-9]+\].*-C target/linux"; then
                 STAGE="${MAGENTA}Target (45%)${RESET}"
-              elif echo "$LINE" | grep -q "package/compile"; then
+
+              elif echo "$LINE" | grep -qE "make\[[0-9]+\].*-C package/"; then
                 STAGE="${YELLOW}Package (70%)${RESET}"
-              elif echo "$LINE" | grep -q "package/install"; then
+
+              elif echo "$LINE" | grep -qE "make\[[0-9]+\].*-C package/install"; then
                 STAGE="${GREEN}Install (90%)${RESET}"
               fi
 
@@ -619,12 +623,12 @@ jobs:
                 PERCENT=$((DELTA * 100 / RUNTIME_MAX))
                 [ $PERCENT -gt 100 ] && PERCENT=100
 
-                echo -e "${MAGENTA}⏳ 定时刷新：${RESET}"
+                echo -e "${MAGENTA}========== ⏳ 定时刷新 ($(date '+%H:%M:%S'))  ⏳ ==========${RESET}"
                 echo -e "📦 磁盘信息：${CYAN}$(df -h "${GITHUB_WORKSPACE}" | awk 'NR==2{print $3 "/" $2 " used (" $5 ")"}')${RESET}"
                 echo -e "📊 估算进度：${YELLOW}${PERCENT}%${RESET}"
                 echo -e "📌 当前阶段：${STAGE}"
                 echo -e "🔧 编译事件：${GREEN}${COMPILE_COUNT}${RESET} / ${TOTAL_EVENTS}"
-                echo "----------------------------------------"
+                echo "-----------------------------------------"
               fi
 
               sleep 1
