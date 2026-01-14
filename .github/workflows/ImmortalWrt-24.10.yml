@@ -521,13 +521,6 @@ jobs:
           [ "$ENABLE_KEEPALIVED" = "true" ] && \
             check_config "$GITHUB_WORKSPACE/config/keepalived.config" "Keepalived"
 
-      - name: 获取磁盘增长缓存
-        id: cache-disk_growth
-        uses: actions/cache@v4
-        with:
-          path: ${{ github.workspace }}/disk_growth.txt
-          key: ${{ env.REPO_PATH }}-${{ env.REPO_BRANCH }}-disk_growth
-
       - name: 下载源码包
         run: |
           cd openwrt
@@ -544,6 +537,14 @@ jobs:
           restore-keys: |
             buildcache-${{ github.event.inputs.device_model }}-${{ env.REPO_BRANCH }}-
 
+      - name: 恢复构建元数据缓存
+        uses: actions/cache@v4
+        with:
+          path: ${{ github.workspace }}/build_meta
+          key: build-meta-${{ env.REPO_BRANCH }}-${{ github.event.inputs.device_model }}
+          restore-keys: |
+            build-meta-${{ env.REPO_BRANCH }}-
+
       - name: 编译固件
         id: compile
         run: |
@@ -553,17 +554,26 @@ jobs:
           # 创建日志文件
           : > build.log
 
+          mkdir -p "$GITHUB_WORKSPACE/build_meta"
+
+
           # -------------------------
-          # 预扫描总编译事件数（dry-run）
+          # 加载历史 TOTAL_EVENTS（智能模式）
           # -------------------------
-          echo "⏳ 正在预扫描编译事件总数..."
-          TOTAL_EVENTS=$(make -n -j$(nproc) 2>/dev/null | grep -cE "make\[[0-9]+\].*-C .+ compile")
-          echo "📌 总编译事件数：$TOTAL_EVENTS"
+          TOTAL_FILE="$GITHUB_WORKSPACE/build_meta/compile_total.txt"
+
+          if [ -f "$TOTAL_FILE" ]; then
+            TOTAL_EVENTS=$(cat "$TOTAL_FILE")
+            echo "📌 读取历史总事件数：$TOTAL_EVENTS"
+          else
+            TOTAL_EVENTS=0
+            echo "📌 未找到历史事件数，将在本次构建结束后学习"
+          fi
 
           # -------------------------
           # 磁盘增长缓存
           # -------------------------
-          CACHE_FILE="$GITHUB_WORKSPACE/disk_growth.txt"
+          CACHE_FILE="$GITHUB_WORKSPACE/build_meta/disk_growth.txt"
           # 默认最大增长（35GB）
           DEFAULT_MAX=$((35 * 1024 * 1024 * 1024))
           # 如果缓存存在 → 读取内容
@@ -671,6 +681,29 @@ jobs:
             echo "📁 变化未超过 1%，不更新缓存"
           fi
 
+          # -------------------------
+          # 统计本次真实 compile 次数
+          # -------------------------
+          REAL_EVENTS=$(grep -cE "make\[[0-9]+\].*-C .+ compile" build.log)
+          echo "📌 本次总编译事件：$REAL_EVENTS"
+
+          # -------------------------
+          # 智能更新 TOTAL_EVENTS（不同就更新）
+          # -------------------------
+          if [ "$TOTAL_EVENTS" -eq 0 ]; then
+            # 第一次构建 → 直接保存
+            echo "$REAL_EVENTS" > "$TOTAL_FILE"
+            echo "📁 已保存首次事件数：$REAL_EVENTS"
+          else
+            # 后续构建 → 只要不同就更新
+            if [ "$REAL_EVENTS" -ne "$TOTAL_EVENTS" ]; then
+              echo "$REAL_EVENTS" > "$TOTAL_FILE"
+              echo "📁 事件数变化，已更新为：$REAL_EVENTS"
+            else
+              echo "📁 事件数一致，无需更新"
+            fi
+          fi
+
           echo "status=success" >> $GITHUB_OUTPUT
           echo "DEVICE_NAME=_$DEVICE_MODEL" >> $GITHUB_ENV
           echo "FILE_DATE=_$(date +"%Y%m%d%H%M")" >> $GITHUB_ENV
@@ -719,6 +752,13 @@ jobs:
             openwrt/staging_dir
             openwrt/tmp
           key: buildcache-${{ github.event.inputs.device_model }}-${{ env.REPO_BRANCH }}-${{ env.LATEST_SHA }}
+
+      - name: 保存构建元数据缓存
+        if: steps.compile.outputs.status == 'success'
+        uses: actions/cache@v4
+        with:
+          path: ${{ github.workspace }}/build_meta
+          key: build-meta-${{ env.REPO_BRANCH }}-${{ github.event.inputs.device_model }}
 
       - name: 上传编译日志
         if: failure()
