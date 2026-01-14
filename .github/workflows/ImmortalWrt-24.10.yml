@@ -509,31 +509,16 @@ jobs:
         run: |
           cd openwrt
           echo "🚀 正在编译固件..."
-
           # 创建日志文件
           : > build.log
-
           mkdir -p "$GITHUB_WORKSPACE/build_meta"
-
-          # -------------------------
-          # 加载历史 TOTAL_EVENTS（智能模式）
-          # -------------------------
-          TOTAL_FILE="$GITHUB_WORKSPACE/build_meta/compile_total.txt"
-
-          if [ -f "$TOTAL_FILE" ]; then
-              TOTAL_EVENTS=$(cat "$TOTAL_FILE")
-              echo "📌 读取历史总事件数：$TOTAL_EVENTS"
-          else
-              TOTAL_EVENTS=-1
-              echo "📌 未找到历史事件数，将在本次构建结束后学习"
-          fi
-
           # -------------------------
           # 磁盘增长缓存
           # -------------------------
           CACHE_FILE="$GITHUB_WORKSPACE/build_meta/disk_growth.txt"
+          # 默认最大增长（35GB）
           DEFAULT_MAX=$((35 * 1024 * 1024 * 1024))
-
+          # 如果缓存存在 → 读取内容
           if [ -f "$CACHE_FILE" ]; then
             MAX_GROWTH=$(cat "$CACHE_FILE")
             echo "📁 已加载历史磁盘增长值：$(echo $((MAX_GROWTH/1024/1024/1024))) GB"
@@ -541,133 +526,101 @@ jobs:
             MAX_GROWTH=$DEFAULT_MAX
             echo "📁 未找到历史缓存，使用默认最大增长：35GB"
           fi
-
+          # 记录初始磁盘占用
           START=$(df -B1 "${GITHUB_WORKSPACE}" | awk 'NR==2{print $3}')
-
           # -------------------------
-          # 实时监控（专业版）
+          # 启动后台监控（双循环）
           # -------------------------
-          COMPILE_COUNT=0
-          LAST_OUTPUT_TIME=$(date +%s)
-          INTERVAL=300
-
-          # 颜色
-          RED="\033[31m"
-          GREEN="\033[32m"
-          YELLOW="\033[33m"
-          BLUE="\033[34m"
-          MAGENTA="\033[35m"
-          CYAN="\033[36m"
-          RESET="\033[0m"
-
-          STAGE="${CYAN}初始化${RESET}"
-
-          # -------------------------
-          # 捕获 make 退出码（关键）
-          # -------------------------
-          MAKE_RET_FILE="/tmp/make_ret_$$"
-
-          {
+          (
+            RUNTIME_MAX=$MAX_GROWTH
+            LAST_OUTPUT_TIME=$(date +%s)
+            INTERVAL=300
+            # 颜色定义
+            RED="\033[31m"
+            GREEN="\033[32m"
+            YELLOW="\033[33m"
+            BLUE="\033[34m"
+            MAGENTA="\033[35m"
+            CYAN="\033[36m"
+            RESET="\033[0m"
+            # 事件循环：监听 build.log
+            tail -F build.log 2>/dev/null | while read -r LINE; do
+              echo "$LINE" > /tmp/last_line
+            done &
+            # -------------------------
+            # 心跳循环
+            # -------------------------
+            STAGE="${CYAN}初始化${RESET}"
+            while true; do
+              NOW=$(date +%s)
+              LINE=$(cat /tmp/last_line 2>/dev/null || echo "")
               # -------------------------
-              # 直接解析 make 实时输出（核心）
+              # 阶段识别（根据日志内容）
               # -------------------------
-              stdbuf -oL -eL make -j$(nproc) 2>&1 | tee build.log | while IFS= read -r LINE; do
+              if echo "$LINE" | grep -qE "make\[[0-9]+\].*-C tools/"; then
+                STAGE="${CYAN}Tools (10%)${RESET}"
+              elif echo "$LINE" | grep -qE "make\[[0-9]+\].*-C toolchain/"; then
+                STAGE="${BLUE}Toolchain (25%)${RESET}"
+              elif echo "$LINE" | grep -qE "make\[[0-9]+\].*-C target/linux"; then
+                STAGE="${MAGENTA}Target (45%)${RESET}"
+              elif echo "$LINE" | grep -qE "make\[[0-9]+\].*-C package/"; then
+                STAGE="${YELLOW}Package (70%)${RESET}"
+              elif echo "$LINE" | grep -qE "make\[[0-9]+\].*-C package/install"; then
+                STAGE="${GREEN}Install (90%)${RESET}"
+              fi
 
-                  # 阶段识别
-                  if echo "$LINE" | grep -qE "make\[[0-9]+\].*-C tools/"; then
-                      STAGE="${CYAN}Tools (10%)${RESET}"
-                  elif echo "$LINE" | grep -qE "make\[[0-9]+\].*-C toolchain/"; then
-                      STAGE="${BLUE}Toolchain (25%)${RESET}"
-                  elif echo "$LINE" | grep -qE "make\[[0-9]+\].*-C target/linux"; then
-                      STAGE="${MAGENTA}Target (45%)${RESET}"
-                  elif echo "$LINE" | grep -qE "make\[[0-9]+\].*-C package/"; then
-                      STAGE="${YELLOW}Package (70%)${RESET}"
-                  elif echo "$LINE" | grep -qE "make\[[0-9]+\].*-C package/install"; then
-                      STAGE="${GREEN}Install (90%)${RESET}"
-                  fi
-
-                  # -------------------------
-                  # 真实编译事件计数（只统计 make[3] + package/feeds/target）
-                  # -------------------------
-                  if echo "$LINE" | grep -qE '^ make\[3\] -C (package/|feeds/|target/).+ compile$'; then
-                      COMPILE_COUNT=$((COMPILE_COUNT + 1))
-
-                      DISPLAY_TOTAL=$TOTAL_EVENTS
-                      [ "$TOTAL_EVENTS" -eq -1 ] && DISPLAY_TOTAL="∞"
-                  fi
-
-                  # -------------------------
-                  # 定时刷新（磁盘监控）
-                  # -------------------------
-                  NOW=$(date +%s)
-                  if [ $((NOW - LAST_OUTPUT_TIME)) -ge $INTERVAL ]; then
-                      LAST_OUTPUT_TIME=$NOW
-
-                      USED=$(df -B1 "${GITHUB_WORKSPACE}" | awk 'NR==2{print $3}')
-                      DELTA=$((USED - START))
-
-                      [ $DELTA -gt $MAX_GROWTH ] && MAX_GROWTH=$DELTA
-
-                      PERCENT=$((DELTA * 100 / MAX_GROWTH))
-                      [ $PERCENT -gt 100 ] && PERCENT=100
-
-                      echo -e "${MAGENTA}========== ⏳ 定时刷新 ($(date '+%H:%M:%S'))  ⏳ ==========${RESET}"
-                      echo -e "📦 磁盘信息：${CYAN}$(df -h "${GITHUB_WORKSPACE}" | awk 'NR==2{print $3 "/" $2 " used (" $5 ")"}')${RESET}"
-                      echo -e "📊 估算进度：${YELLOW}${PERCENT}%${RESET}"
-                      echo -e "📌 当前阶段：${STAGE}"
-                      echo -e "🔧 编译事件：${GREEN}${COMPILE_COUNT}${RESET} / ${DISPLAY_TOTAL}"
-                      echo "-----------------------------------------"
-                  fi
-
-              done
-
-              echo "${PIPESTATUS[0]}" > "$MAKE_RET_FILE"
-          }
-
-          RET=$(cat "$MAKE_RET_FILE")
-          rm -f "$MAKE_RET_FILE"
-
+              # -------------------------
+              # 磁盘监控
+              # -------------------------
+              USED=$(df -B1 "${GITHUB_WORKSPACE}" | awk 'NR==2{print $3}')
+              DELTA=$((USED - START))
+              if [ $DELTA -gt $RUNTIME_MAX ]; then
+                RUNTIME_MAX=$DELTA
+              fi
+              echo "$RUNTIME_MAX" > /tmp/max_growth_runtime
+              # -------------------------
+              # 定时刷新（每 5 分钟）
+              # -------------------------
+              if [ $((NOW - LAST_OUTPUT_TIME)) -ge $INTERVAL ]; then
+                LAST_OUTPUT_TIME=$NOW
+                PERCENT=$((DELTA * 100 / RUNTIME_MAX))
+                [ $PERCENT -gt 100 ] && PERCENT=100
+                echo -e "${MAGENTA}========== ⏳ 定时刷新 ($(date '+%H:%M:%S'))  ⏳ ==========${RESET}"
+                echo -e "📦 磁盘信息：${CYAN}$(df -h "${GITHUB_WORKSPACE}" | awk 'NR==2{print $3 "/" $2 " used (" $5 ")"}')${RESET}"
+                echo -e "📊 估算进度：${YELLOW}${PERCENT}%${RESET}"
+                echo -e "📌 当前阶段：${STAGE}"
+                echo "-----------------------------------------"
+              fi
+              sleep 1
+            done
+          ) &
+          monitor_pid=$!
+          # -------------------------
+          # 正式编译
+          # -------------------------
+          stdbuf -oL -eL make -j$(nproc) 2>&1 | stdbuf -oL tee build.log
+          RET=${PIPESTATUS[0]}
+          kill $monitor_pid || true
           if [ $RET -ne 0 ]; then
-              echo "❌ 编译失败！"
-              exit 1
+            echo "❌ 编译失败！"
+            exit 1
           fi
-
           # -------------------------
           # 自学习磁盘增长
           # -------------------------
+          if [ -f /tmp/max_growth_runtime ]; then
+            MAX_GROWTH=$(cat /tmp/max_growth_runtime)
+          fi
           END=$(df -B1 "${GITHUB_WORKSPACE}" | awk 'NR==2{print $3}')
           DELTA=$((END - START))
-
           THRESHOLD=$((MAX_GROWTH / 100))
           DIFF=$((DELTA - MAX_GROWTH))
           [ $DIFF -lt 0 ] && DIFF=$(( -DIFF ))
-
           if [ "$DIFF" -gt "$THRESHOLD" ]; then
-              echo "$DELTA" > "$CACHE_FILE"
-              echo "📁 磁盘增长变化超过 1%，已更新缓存为：$(echo $((DELTA/1024/1024/1024))) GB"
+            echo "$DELTA" > "$CACHE_FILE"
+            echo "📁 磁盘增长变化超过 1%，已更新缓存为：$(echo $((DELTA/1024/1024/1024))) GB"
           else
-              echo "📁 变化未超过 1%，不更新缓存"
-          fi
-
-          # -------------------------
-          # 统计本次真实 compile 次数（与实时计数规则一致）
-          # -------------------------
-          REAL_EVENTS=$(grep -cE '^ make\[3\] -C (package/|feeds/|target/).+ compile$' build.log)
-          echo "📌 本次总编译事件：$REAL_EVENTS"
-
-          # -------------------------
-          # 智能更新 TOTAL_EVENTS（不同就更新）
-          # -------------------------
-          if [ "$TOTAL_EVENTS" -eq -1 ]; then
-              echo "$REAL_EVENTS" > "$TOTAL_FILE"
-              echo "📁 已保存首次事件数：$REAL_EVENTS"
-          else
-              if [ "$REAL_EVENTS" -ne "$TOTAL_EVENTS" ]; then
-                  echo "$REAL_EVENTS" > "$TOTAL_FILE"
-                  echo "📁 事件数变化，已更新为：$REAL_EVENTS"
-              else
-                  echo "📁 事件数一致，无需更新"
-              fi
+            echo "📁 变化未超过 1%，不更新缓存"
           fi
 
           echo "status=success" >> $GITHUB_OUTPUT
