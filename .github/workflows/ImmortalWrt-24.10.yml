@@ -443,9 +443,6 @@ jobs:
           # 注入目标设备型号
           echo "CONFIG_TARGET_mediatek_filogic_DEVICE_$DEVICE_MODEL=y" >> .config
 
-          # 打开CCACHE
-          echo "CONFIG_CCACHE=y" >> .config
-
           # 执行 DIY Part2 脚本
           chmod +x $GITHUB_WORKSPACE/$DIY_P2_SH
           $GITHUB_WORKSPACE/$DIY_P2_SH
@@ -476,32 +473,24 @@ jobs:
       - name: 验证插件依赖是否生效
         run: |
           cd openwrt
-
           echo ">>> 开始验证插件依赖是否在最终 .config 中生效"
-
           check_config() {
             local cfg_file="$1"
             local title="$2"
-
             if [ ! -f "$cfg_file" ]; then
               echo "⚠ 跳过：未找到 $cfg_file"
               return
             fi
-
             echo "----------------------------------------"
             echo "🔍 检查 $title 配置文件: $(basename "$cfg_file")"
             echo "----------------------------------------"
-
             # 读取 config 文件中所有 CONFIG_*=y 的条目
             mapfile -t items < <(grep -E '^CONFIG_.*=y' "$cfg_file" | cut -d= -f1)
-
             if [ ${#items[@]} -eq 0 ]; then
               echo "⚠ $title 配置文件中没有 CONFIG_*=y 条目，跳过检查"
               return
             fi
-
             local missing=0
-
             for item in "${items[@]}"; do
               if grep -q "^${item}=y" .config; then
                 echo "✔ $item 已启用"
@@ -510,32 +499,19 @@ jobs:
                 missing=1
               fi
             done
-
             if [ "$missing" = "1" ]; then
               echo "❌ $title 依赖缺失，可能导致运行错误"
               exit 1
             fi
-
             echo "🎉 $title 所有依赖均已启用"
           }
-
           # 根据环境变量判断是否需要检查
           [ "$ENABLE_OPENCLASH" = "true" ] && \
             check_config "$GITHUB_WORKSPACE/config/openclash.config" "OpenClash"
-
           [ "$ENABLE_WECHATPUSH" = "true" ] && \
             check_config "$GITHUB_WORKSPACE/config/wechatpush.config" "WeChatPush"
-
           [ "$ENABLE_KEEPALIVED" = "true" ] && \
             check_config "$GITHUB_WORKSPACE/config/keepalived.config" "Keepalived"
-
-      - name: 恢复编译缓存
-        uses: actions/cache@v4
-        with:
-          path: /home/runner/.ccache
-          key: ccache-${{ github.event.inputs.device_model }}-${{ env.REPO_BRANCH }}-${{ env.LATEST_SHA }}
-          restore-keys: |
-            ccache-${{ github.event.inputs.device_model }}-${{ env.REPO_BRANCH }}-
 
       - name: 获取磁盘增长缓存
         id: cache-disk_growth
@@ -549,13 +525,20 @@ jobs:
           cd openwrt
           make download -j$(nproc)
 
+      - name: 恢复构建缓存
+        uses: actions/cache@v4
+        with:
+          path: |
+            openwrt/build_dir
+            openwrt/staging_dir
+            openwrt/tmp
+          key: buildcache-${{ github.event.inputs.device_model }}-${{ env.REPO_BRANCH }}-${{ env.LATEST_SHA }}
+          restore-keys: |
+            buildcache-${{ github.event.inputs.device_model }}-${{ env.REPO_BRANCH }}-
+
       - name: 编译固件
         id: compile
         run: |
-          export CCACHE_DIR=/home/runner/.ccache
-          export CCACHE_COMPILERCHECK=content
-          ccache -M 5G
-
           cd openwrt
           echo "🚀 正在编译固件..."
 
@@ -685,44 +668,49 @@ jobs:
           echo "FILE_DATE=_$(date +"%Y%m%d%H%M")" >> $GITHUB_ENV
           echo "✅ 编译成功！"
 
-      - name: 检查 ccache 写入情况
+      - name: 清理构建缓存中不必要的文件
         run: |
-          # 检查目录是否存在
-          ls -ld /home/runner/.ccache || echo "目录不存在！"
-          # 显示统计信息
-          ccache -s
-          # 显示当前 ccache 的配置
-          ccache -p | grep cache_dir
-          # 显示缓存空间
-          du -sh /home/runner/.ccache || true
+          cd openwrt
 
-      - name: 调试：查找 ccache 目录
-        run: |
-          echo ">>> which ccache"
-          which ccache || true
+          echo "🧹 清理 build_dir 中的临时文件..."
+          rm -rf build_dir/*/tmp
+          rm -rf build_dir/*/*/.pkgdir
+          rm -rf build_dir/*/*/.stamp
+          rm -rf build_dir/*/*/.built
+          rm -rf build_dir/*/*/.prepared
+          rm -rf build_dir/*/*/.configured
+          rm -rf build_dir/*/*/.installed
+          rm -rf build_dir/*/*/.ipk
+          rm -rf build_dir/*/*/ipkg-*
 
-          echo ">>> ccache -p | grep dir"
-          ccache -p | grep dir || true
+          echo "🧹 清理 staging_dir 中的临时文件..."
+          rm -rf staging_dir/*/stamp
+          rm -rf staging_dir/*/packages
+          rm -rf staging_dir/*/pkginfo
 
-          echo ">>> 搜索可能的 ccache 目录"
-          find $HOME -maxdepth 3 -type d -name "ccache" 2>/dev/null || true
-          find openwrt -maxdepth 5 -type d -name "ccache" 2>/dev/null || true
+          echo "🧹 清理 tmp 目录（保留必要文件）..."
+          rm -rf tmp/check
+          rm -rf tmp/info
+          rm -rf tmp/*.tmp
+          rm -rf tmp/*.log
+          rm -rf tmp/*.mk
 
-          echo ">>> 打印 ccache 配置"
-          ccache -p || true
+          echo "🧹 清理 host 工具链中不必要的文件..."
+          rm -rf build_dir/hostpkg/*/.stamp
+          rm -rf build_dir/hostpkg/*/.built
+          rm -rf build_dir/hostpkg/*/.prepared
 
-          echo ">>> 打印环境变量 PATH"
-          echo "$PATH"
+          echo "🧹 清理完成"
 
-          du -sh /home/runner/.ccache || true
-          du -sh ~/.cache/ccache || true
-
-      - name: 保存编译缓存
+      - name: 保存构建缓存
         if: steps.compile.outputs.status == 'success'
         uses: actions/cache@v4
         with:
-          path: /home/runner/.ccache
-          key: ccache-${{ github.event.inputs.device_model }}-${{ env.REPO_BRANCH }}-${{ env.LATEST_SHA }}
+          path: |
+            openwrt/build_dir
+            openwrt/staging_dir
+            openwrt/tmp
+          key: buildcache-${{ github.event.inputs.device_model }}-${{ env.REPO_BRANCH }}-${{ env.LATEST_SHA }}
 
       - name: 上传编译日志
         if: failure()
