@@ -554,19 +554,46 @@ jobs:
             LAST_OUTPUT_TIME=$(date +%s)
             INTERVAL=300
             COMPILE_COUNT=0
+            # 颜色定义
+            RED="\033[31m"
+            GREEN="\033[32m"
+            YELLOW="\033[33m"
+            BLUE="\033[34m"
+            MAGENTA="\033[35m"
+            CYAN="\033[36m"
+            RESET="\033[0m"
 
             # 事件循环：监听 build.log
             tail -F build.log 2>/dev/null | while read -r LINE; do
               echo "$LINE" > /tmp/last_line
             done &
 
+            # -------------------------
             # 心跳循环
+            # -------------------------
+            STAGE="${CYAN}初始化${RESET}"
+
             while true; do
               NOW=$(date +%s)
               LINE=$(cat /tmp/last_line 2>/dev/null || echo "")
 
               # -------------------------
-              # 编译事件计数器（核心功能）
+              # 阶段识别（根据日志内容）
+              # -------------------------
+              if echo "$LINE" | grep -q "tools/compile"; then
+                STAGE="${CYAN}Tools (10%)${RESET}"
+              elif echo "$LINE" | grep -q "toolchain/compile"; then
+                STAGE="${BLUE}Toolchain (25%)${RESET}"
+              elif echo "$LINE" | grep -q "target/linux"; then
+                STAGE="${MAGENTA}Target (45%)${RESET}"
+              elif echo "$LINE" | grep -q "package/compile"; then
+                STAGE="${YELLOW}Package (70%)${RESET}"
+              elif echo "$LINE" | grep -q "package/install"; then
+                STAGE="${GREEN}Install (90%)${RESET}"
+              fi
+
+              # -------------------------
+              # 编译事件计数器
               # -------------------------
               if echo "$LINE" | grep -qE "make\[[0-9]+\].*-C .+ compile"; then
                 COMPILE_COUNT=$((COMPILE_COUNT + 1))
@@ -584,7 +611,7 @@ jobs:
               echo "$RUNTIME_MAX" > /tmp/max_growth_runtime
 
               # -------------------------
-              # 定时刷新
+              # 定时刷新（每 5 分钟）
               # -------------------------
               if [ $((NOW - LAST_OUTPUT_TIME)) -ge $INTERVAL ]; then
                 LAST_OUTPUT_TIME=$NOW
@@ -592,10 +619,11 @@ jobs:
                 PERCENT=$((DELTA * 100 / RUNTIME_MAX))
                 [ $PERCENT -gt 100 ] && PERCENT=100
 
-                echo "⏳ 定时刷新："
-                echo "📦 磁盘信息：$(df -h "${GITHUB_WORKSPACE}" | awk 'NR==2{print $3 "/" $2 " used (" $5 ")"}')"
-                echo "📊 估算进度：${PERCENT}%"
-                echo "🔧 编译事件：${COMPILE_COUNT} / ${TOTAL_EVENTS}"
+                echo -e "${MAGENTA}⏳ 定时刷新：${RESET}"
+                echo -e "📦 磁盘信息：${CYAN}$(df -h "${GITHUB_WORKSPACE}" | awk 'NR==2{print $3 "/" $2 " used (" $5 ")"}')${RESET}"
+                echo -e "📊 估算进度：${YELLOW}${PERCENT}%${RESET}"
+                echo -e "📌 当前阶段：${STAGE}"
+                echo -e "🔧 编译事件：${GREEN}${COMPILE_COUNT}${RESET} / ${TOTAL_EVENTS}"
                 echo "----------------------------------------"
               fi
 
