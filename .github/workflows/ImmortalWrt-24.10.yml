@@ -490,9 +490,8 @@ jobs:
         uses: actions/cache@v4
         with:
           path: |
-            openwrt/build_dir
             openwrt/staging_dir
-            openwrt/tmp
+            openwrt/build_dir/toolchain-*
           key: buildcache-${{ github.event.inputs.device_model }}-${{ env.REPO_BRANCH }}-${{ env.LATEST_SHA }}
           restore-keys: |
             buildcache-${{ github.event.inputs.device_model }}-${{ env.REPO_BRANCH }}-
@@ -733,16 +732,40 @@ jobs:
           rm -rf build_dir/hostpkg/*/.built
           rm -rf build_dir/hostpkg/*/.prepared
 
+          echo "🧹 额外清理不参与缓存但占空间的目录..."
+          # 下载缓存：不需要进构建缓存，下次可以重新下载
+          rm -rf dl/*
+          # 编译产物：不需要进构建缓存，只保留发布用的那一份
+          rm -rf bin/*
+          # 日志：不进构建缓存，避免占空间
+          rm -rf logs/* 2>/dev/null || true
+          # 临时目录里可能残留的大文件
+          rm -rf tmp/*
+
+          echo "📊 清理后目录体积："
+          du -sh build_dir || true
+          du -sh staging_dir || true
+          du -sh dl || true
+          du -sh bin || true
+
           echo "🧹 清理完成"
+
+      - name: 检查缓存目录大小
+        run: |
+          cd openwrt
+          echo "=== 缓存目录体积检查 ==="
+          du -sh build_dir || true
+          du -sh staging_dir || true
+          du -sh tmp || true
+          df -hT
 
       - name: 保存构建缓存
         if: steps.compile.outputs.status == 'success'
         uses: actions/cache@v4
         with:
           path: |
-            openwrt/build_dir
             openwrt/staging_dir
-            openwrt/tmp
+            openwrt/build_dir/toolchain-*
           key: buildcache-${{ github.event.inputs.device_model }}-${{ env.REPO_BRANCH }}-${{ env.LATEST_SHA }}
 
       - name: 保存构建元数据缓存
