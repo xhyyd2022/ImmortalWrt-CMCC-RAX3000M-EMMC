@@ -559,15 +559,22 @@ jobs:
           cd openwrt
           echo "🚀 正在编译固件..."
 
-          # 提前创建空日志文件，避免 tail -F 因文件不存在退出
+          # 创建日志文件
           : > build.log
 
-          # 缓存文件路径
-          CACHE_FILE="../disk_growth.txt"
+          # -------------------------
+          # 预扫描总编译事件数（dry-run）
+          # -------------------------
+          echo "⏳ 正在预扫描编译事件总数..."
+          TOTAL_EVENTS=$(make -n -j$(nproc) 2>/dev/null | grep -cE "make\[[0-9]+\].*-C .+ compile")
+          echo "📌 总编译事件数：$TOTAL_EVENTS"
 
+          # -------------------------
+          # 磁盘增长缓存
+          # -------------------------
+          CACHE_FILE="../disk_growth.txt"
           # 默认最大增长（40GB）
           DEFAULT_MAX=$((40 * 1024 * 1024 * 1024))
-
           # 如果缓存存在 → 读取内容
           if [ -f "$CACHE_FILE" ]; then
             MAX_GROWTH=$(cat "$CACHE_FILE")
@@ -576,7 +583,6 @@ jobs:
             MAX_GROWTH=$DEFAULT_MAX
             echo "📁 未找到历史缓存，使用默认最大增长：40GB"
           fi
-
           # 记录初始磁盘占用
           START=$(df -B1 "${GITHUB_WORKSPACE}" | awk 'NR==2{print $3}')
 
@@ -585,84 +591,53 @@ jobs:
           # -------------------------
           (
             RUNTIME_MAX=$MAX_GROWTH
-            LAST_DONE=0
             LAST_OUTPUT_TIME=$(date +%s)
             INTERVAL=300
-            STAGE="初始化"
-            LAST_COMPILED=""
+            COMPILE_COUNT=0
 
+            # 事件循环：监听 build.log
             tail -F build.log 2>/dev/null | while read -r LINE; do
               echo "$LINE" > /tmp/last_line
             done &
 
+            # 心跳循环
             while true; do
               NOW=$(date +%s)
               LINE=$(cat /tmp/last_line 2>/dev/null || echo "")
 
-              # 阶段识别（make[2]）
-              if echo "$LINE" | grep -q "make\[2\].*tools/compile"; then
-                STAGE="Tools (10%)"
-              elif echo "$LINE" | grep -q "make\[2\].*toolchain/compile"; then
-                STAGE="Toolchain (25%)"
-              elif echo "$LINE" | grep -q "make\[2\].*target/linux"; then
-                STAGE="Target (45%)"
-              elif echo "$LINE" | grep -q "make\[2\].*package/compile"; then
-                STAGE="Package (70%)"
-              elif echo "$LINE" | grep -q "make\[2\].*package/install"; then
-                STAGE="Install (90%)"
-              fi
-
-              # compiled 输出（make[3]）
+              # -------------------------
+              # 编译事件计数器（核心功能）
+              # -------------------------
               if echo "$LINE" | grep -qE "make\[[0-9]+\].*-C .+ compile"; then
-                CURRENT=$(echo "$LINE" | sed -n 's/.*-C \(.*\) compile.*/\1/p')
-                if [ "$CURRENT" != "$LAST_COMPILED" ]; then
-                  echo "🔧 $CURRENT compiled"
-                  LAST_COMPILED="$CURRENT"
-                  LAST_OUTPUT_TIME=$NOW
-                fi
+                COMPILE_COUNT=$((COMPILE_COUNT + 1))
+                echo "🔧 编译事件：$COMPILE_COUNT / $TOTAL_EVENTS"
+                LAST_OUTPUT_TIME=$NOW
               fi
 
-              # 统计 package 编译数量
-              COMPILE_COUNT=$(grep -c 'make\[3\].*-C package' build.log 2>/dev/null || echo 0)
-
-              TOTAL=$(find package feeds -name Makefile | wc -l)
-              [ "$TOTAL" -eq 0 ] && TOTAL=1
-              PKG_PERCENT=$((COMPILE_COUNT * 100 / TOTAL))
-
+              # -------------------------
+              # 磁盘监控
+              # -------------------------
               USED=$(df -B1 "${GITHUB_WORKSPACE}" | awk 'NR==2{print $3}')
               DELTA=$((USED - START))
+
               if [ $DELTA -gt $RUNTIME_MAX ]; then
                 RUNTIME_MAX=$DELTA
               fi
               echo "$RUNTIME_MAX" > /tmp/max_growth_runtime
 
-              # 包事件
-              if [ "$COMPILE_COUNT" -ne "$LAST_DONE" ]; then
-                LAST_DONE=$COMPILE_COUNT
-                LAST_OUTPUT_TIME=$NOW
-
-                PERCENT=$((DELTA * 100 / RUNTIME_MAX))
-                [ $PERCENT -gt 100 ] && PERCENT=100
-
-                echo "📦 磁盘信息：$(df -h "${GITHUB_WORKSPACE}" | awk 'NR==2{print $3 "/" $2 " used (" $5 ")"}')"
-                echo "📊 估算进度：${PERCENT}%"
-                echo "📌 当前阶段：${STAGE}"
-                echo "📦 已编译包：${COMPILE_COUNT} / ${TOTAL}（${PKG_PERCENT}%）"
-                echo "----------------------------------------"
-              fi
-
-              # 定时事件
+              # -------------------------
+              # 定时刷新
+              # -------------------------
               if [ $((NOW - LAST_OUTPUT_TIME)) -ge $INTERVAL ]; then
                 LAST_OUTPUT_TIME=$NOW
 
                 PERCENT=$((DELTA * 100 / RUNTIME_MAX))
                 [ $PERCENT -gt 100 ] && PERCENT=100
 
-                echo "⏳ 长时间无包事件，刷新硬盘状态…"
+                echo "⏳ 定时刷新："
                 echo "📦 磁盘信息：$(df -h "${GITHUB_WORKSPACE}" | awk 'NR==2{print $3 "/" $2 " used (" $5 ")"}')"
                 echo "📊 估算进度：${PERCENT}%"
-                echo "📌 当前阶段：${STAGE}"
-                echo "📦 已编译包：${COMPILE_COUNT} / ${TOTAL}（${PKG_PERCENT}%）"
+                echo "🔧 编译事件：${COMPILE_COUNT} / ${TOTAL_EVENTS}"
                 echo "----------------------------------------"
               fi
 
@@ -672,7 +647,7 @@ jobs:
           monitor_pid=$!
 
           # -------------------------
-          # 编译并记录日志
+          # 正式编译
           # -------------------------
           make -j$(nproc) 2>&1 | tee build.log
           RET=${PIPESTATUS[0]}
@@ -684,18 +659,17 @@ jobs:
             exit 1
           fi
 
-          # 读取监控中的最终 MAX_GROWTH
+          # -------------------------
+          # 自学习磁盘增长
+          # -------------------------
           if [ -f /tmp/max_growth_runtime ]; then
             MAX_GROWTH=$(cat /tmp/max_growth_runtime)
           fi
 
-          # 记录最终磁盘增长
           END=$(df -B1 "${GITHUB_WORKSPACE}" | awk 'NR==2{print $3}')
           DELTA=$((END - START))
 
-          # 计算变化阈值（1%）
           THRESHOLD=$((MAX_GROWTH / 100))
-
           DIFF=$((DELTA - MAX_GROWTH))
           [ $DIFF -lt 0 ] && DIFF=$(( -DIFF ))
 
