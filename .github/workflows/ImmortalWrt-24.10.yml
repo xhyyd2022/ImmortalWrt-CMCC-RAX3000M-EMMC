@@ -477,20 +477,26 @@ jobs:
           check_config() {
             local cfg_file="$1"
             local title="$2"
+
             if [ ! -f "$cfg_file" ]; then
               echo "⚠ 跳过：未找到 $cfg_file"
               return
             fi
+
             echo "----------------------------------------"
             echo "🔍 检查 $title 配置文件: $(basename "$cfg_file")"
             echo "----------------------------------------"
-            # 读取 config 文件中所有 CONFIG_*=y 的条目
-            mapfile -t items < <(grep -E '^CONFIG_.*=y' "$cfg_file" | cut -d= -f1)
+
+            # 避免 grep 返回 1 导致整个 step 退出
+            mapfile -t items < <(grep -E '^CONFIG_.*=y' "$cfg_file" 2>/dev/null || true | cut -d= -f1)
+
             if [ ${#items[@]} -eq 0 ]; then
               echo "⚠ $title 配置文件中没有 CONFIG_*=y 条目，跳过检查"
               return
             fi
+
             local missing=0
+
             for item in "${items[@]}"; do
               if grep -q "^${item}=y" .config; then
                 echo "✔ $item 已启用"
@@ -499,10 +505,12 @@ jobs:
                 missing=1
               fi
             done
+
             if [ "$missing" = "1" ]; then
               echo "❌ $title 依赖缺失，可能导致运行错误"
               exit 1
             fi
+
             echo "🎉 $title 所有依赖均已启用"
           }
           # 根据环境变量判断是否需要检查
