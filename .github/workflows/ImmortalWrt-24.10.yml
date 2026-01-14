@@ -381,7 +381,7 @@ jobs:
           echo "SOURCE_COMMIT_URL=$COMMIT_URL" >> $GITHUB_ENV
           echo "LATEST_SHA=$CURRENT_SHA" >> $GITHUB_ENV
 
-      - name: 移动last_checked_sha到根目录
+      - name: 移动源仓库哈希缓存到根目录
         run: |
           mv "$GITHUB_WORKSPACE/workdir/last_checked_sha.txt" ./last_checked_sha.txt
           cat last_checked_sha.txt
@@ -541,7 +541,7 @@ jobs:
         id: cache-disk_growth
         uses: actions/cache@v4
         with:
-          path: disk_growth.txt
+          path: ${{ github.workspace }}/disk_growth.txt
           key: ${{ env.REPO_PATH }}-${{ env.REPO_BRANCH }}-disk_growth
 
       - name: 下载源码包
@@ -572,9 +572,9 @@ jobs:
           # -------------------------
           # 磁盘增长缓存
           # -------------------------
-          CACHE_FILE="../disk_growth.txt"
-          # 默认最大增长（40GB）
-          DEFAULT_MAX=$((40 * 1024 * 1024 * 1024))
+          CACHE_FILE="$GITHUB_WORKSPACE/disk_growth.txt"
+          # 默认最大增长（35GB）
+          DEFAULT_MAX=$((35 * 1024 * 1024 * 1024))
           # 如果缓存存在 → 读取内容
           if [ -f "$CACHE_FILE" ]; then
             MAX_GROWTH=$(cat "$CACHE_FILE")
