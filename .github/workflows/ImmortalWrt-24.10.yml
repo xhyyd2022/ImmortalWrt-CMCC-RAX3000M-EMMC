@@ -522,11 +522,11 @@ jobs:
           TOTAL_FILE="$GITHUB_WORKSPACE/build_meta/compile_total.txt"
 
           if [ -f "$TOTAL_FILE" ]; then
-            TOTAL_EVENTS=$(cat "$TOTAL_FILE")
-            echo "📌 读取历史总事件数：$TOTAL_EVENTS"
+              TOTAL_EVENTS=$(cat "$TOTAL_FILE")
+              echo "📌 读取历史总事件数：$TOTAL_EVENTS"
           else
-            TOTAL_EVENTS=∞
-            echo "📌 未找到历史事件数，将在本次构建结束后学习"
+              TOTAL_EVENTS=-1
+              echo "📌 未找到历史事件数，将在本次构建结束后学习"
           fi
 
           # -------------------------
@@ -541,7 +541,7 @@ jobs:
             echo "📁 已加载历史磁盘增长值：$(echo $((MAX_GROWTH/1024/1024/1024))) GB"
           else
             MAX_GROWTH=$DEFAULT_MAX
-            echo "📁 未找到历史缓存，使用默认最大增长：40GB"
+            echo "📁 未找到历史缓存，使用默认最大增长：35GB"
           fi
           # 记录初始磁盘占用
           START=$(df -B1 "${GITHUB_WORKSPACE}" | awk 'NR==2{print $3}')
@@ -627,7 +627,10 @@ jobs:
                 echo -e "📦 磁盘信息：${CYAN}$(df -h "${GITHUB_WORKSPACE}" | awk 'NR==2{print $3 "/" $2 " used (" $5 ")"}')${RESET}"
                 echo -e "📊 估算进度：${YELLOW}${PERCENT}%${RESET}"
                 echo -e "📌 当前阶段：${STAGE}"
-                echo -e "🔧 编译事件：${GREEN}${COMPILE_COUNT}${RESET} / ${TOTAL_EVENTS}"
+                # 显示 TOTAL_EVENTS 时把 -1 转成 ∞
+                DISPLAY_TOTAL=$TOTAL_EVENTS
+                [ "$TOTAL_EVENTS" -eq -1 ] && DISPLAY_TOTAL="∞"
+                echo -e "🔧 编译事件：${GREEN}${COMPILE_COUNT}${RESET} / ${DISPLAY_TOTAL}"
                 echo "-----------------------------------------"
               fi
 
@@ -679,18 +682,18 @@ jobs:
           # -------------------------
           # 智能更新 TOTAL_EVENTS（不同就更新）
           # -------------------------
-          if [ "$TOTAL_EVENTS" -eq 0 ]; then
-            # 第一次构建 → 直接保存
-            echo "$REAL_EVENTS" > "$TOTAL_FILE"
-            echo "📁 已保存首次事件数：$REAL_EVENTS"
-          else
-            # 后续构建 → 只要不同就更新
-            if [ "$REAL_EVENTS" -ne "$TOTAL_EVENTS" ]; then
+          if [ "$TOTAL_EVENTS" -eq -1 ]; then
+              # 第一次构建 → 保存真实事件数
               echo "$REAL_EVENTS" > "$TOTAL_FILE"
-              echo "📁 事件数变化，已更新为：$REAL_EVENTS"
-            else
-              echo "📁 事件数一致，无需更新"
-            fi
+              echo "📁 已保存首次事件数：$REAL_EVENTS"
+          else
+              # 后续构建 → 只要不同就更新
+              if [ "$REAL_EVENTS" -ne "$TOTAL_EVENTS" ]; then
+                  echo "$REAL_EVENTS" > "$TOTAL_FILE"
+                  echo "📁 事件数变化，已更新为：$REAL_EVENTS"
+              else
+                  echo "📁 事件数一致，无需更新"
+              fi
           fi
 
           echo "status=success" >> $GITHUB_OUTPUT
