@@ -565,7 +565,6 @@ jobs:
           # -------------------------
           # 捕获 make 退出码（关键）
           # -------------------------
-          # 用一个文件保存 make 的退出码，避免被管道吞掉
           MAKE_RET_FILE="/tmp/make_ret_$$"
 
           {
@@ -587,17 +586,19 @@ jobs:
                       STAGE="${GREEN}Install (90%)${RESET}"
                   fi
 
-                  # 真实编译事件计数（不会重复）
-                  if echo "$LINE" | grep -qE "make\[[0-9]+\].*-C .+ compile"; then
+                  # -------------------------
+                  # 真实编译事件计数（只统计 make[3] + package/feeds/target）
+                  # -------------------------
+                  if echo "$LINE" | grep -qE '^ make\[3\] -C (package/|feeds/|target/).+ compile$'; then
                       COMPILE_COUNT=$((COMPILE_COUNT + 1))
 
                       DISPLAY_TOTAL=$TOTAL_EVENTS
                       [ "$TOTAL_EVENTS" -eq -1 ] && DISPLAY_TOTAL="∞"
-
-                      echo -e "🔧 编译事件：${GREEN}${COMPILE_COUNT}${RESET} / ${DISPLAY_TOTAL}   ${STAGE}"
                   fi
 
+                  # -------------------------
                   # 定时刷新（磁盘监控）
+                  # -------------------------
                   NOW=$(date +%s)
                   if [ $((NOW - LAST_OUTPUT_TIME)) -ge $INTERVAL ]; then
                       LAST_OUTPUT_TIME=$NOW
@@ -649,9 +650,9 @@ jobs:
           fi
 
           # -------------------------
-          # 统计本次真实 compile 次数
+          # 统计本次真实 compile 次数（与实时计数规则一致）
           # -------------------------
-          REAL_EVENTS=$(grep -cE "make\[[0-9]+\].*-C .+ compile" build.log)
+          REAL_EVENTS=$(grep -cE '^ make\[3\] -C (package/|feeds/|target/).+ compile$' build.log)
           echo "📌 本次总编译事件：$REAL_EVENTS"
 
           # -------------------------
