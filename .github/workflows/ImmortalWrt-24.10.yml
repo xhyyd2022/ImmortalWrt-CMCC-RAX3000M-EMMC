@@ -462,8 +462,9 @@ jobs:
           sed -i '/Device\/cmcc_rax3000m_common/,/endef/ s/IMAGE_SIZE := .*/IMAGE_SIZE := 59600m/' \
             target/linux/mediatek/image/filogic.mk
 
-          echo "=== 修改后的 IMAGE_SIZE 行 ==="
-          grep -n "IMAGE_SIZE" target/linux/mediatek/image/filogic.mk
+          echo "=== 修改后的配置 ==="
+          sed -n '/define Device\/cmcc_rax3000m_common/,/endef/p' \
+            target/linux/mediatek/image/filogic.mk
 
       - name: 添加 keepalived-ha 插件
         if: env.ENABLE_KEEPALIVED == 'true'
