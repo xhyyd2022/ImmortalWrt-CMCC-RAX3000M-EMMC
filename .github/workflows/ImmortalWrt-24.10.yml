@@ -488,7 +488,7 @@ jobs:
             echo "----------------------------------------"
 
             # 避免 grep 返回 1 导致整个 step 退出
-            mapfile -t items < <(grep -E '^CONFIG_.*=y' "$cfg_file" 2>/dev/null || true | cut -d= -f1)
+            mapfile -t items < <(grep -E '^CONFIG_.*=y' "$cfg_file" 2>/dev/null || true)
 
             if [ ${#items[@]} -eq 0 ]; then
               echo "⚠ $title 配置文件中没有 CONFIG_*=y 条目，跳过检查"
