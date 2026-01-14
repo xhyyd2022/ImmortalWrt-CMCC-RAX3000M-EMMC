@@ -678,51 +678,61 @@ jobs:
         run: |
           cd openwrt
 
-          echo "🧹 清理 build_dir 中的临时文件..."
-          rm -rf build_dir/*/tmp
-          rm -rf build_dir/*/*/.pkgdir
-          rm -rf build_dir/*/*/.stamp
-          rm -rf build_dir/*/*/.built
-          rm -rf build_dir/*/*/.prepared
-          rm -rf build_dir/*/*/.configured
-          rm -rf build_dir/*/*/.installed
-          rm -rf build_dir/*/*/.ipk
-          rm -rf build_dir/*/*/ipkg-*
+          echo "🧹 开始安全清理构建缓存..."
 
-          echo "🧹 清理 staging_dir 中的临时文件..."
-          rm -rf staging_dir/*/stamp
-          rm -rf staging_dir/*/packages
-          rm -rf staging_dir/*/pkginfo
+          echo "📂 当前目录：$(pwd)"
+          echo "📂 清理前空间："
+          df -hT .
 
-          echo "🧹 清理 tmp 目录（保留必要文件）..."
-          rm -rf tmp/check
-          rm -rf tmp/info
-          rm -rf tmp/*.tmp
-          rm -rf tmp/*.log
-          rm -rf tmp/*.mk
+          echo "----------------------------------------"
+          echo "🧹 清理 build_dir 中的临时文件（安全）"
+          find build_dir -type d -name tmp -exec rm -rf {} + 2>/dev/null || true
+          find build_dir -type d -name .pkgdir -exec rm -rf {} + 2>/dev/null || true
+          find build_dir -type f -name ".stamp*" -delete 2>/dev/null || true
+          find build_dir -type f -name ".built" -delete 2>/dev/null || true
+          find build_dir -type f -name ".prepared" -delete 2>/dev/null || true
+          find build_dir -type f -name ".configured" -delete 2>/dev/null || true
+          find build_dir -type f -name ".installed" -delete 2>/dev/null || true
+          find build_dir -type f -name ".ipk" -delete 2>/dev/null || true
+          find build_dir -type d -name "ipkg-*" -exec rm -rf {} + 2>/dev/null || true
 
-          echo "🧹 清理 host 工具链中不必要的文件..."
-          rm -rf build_dir/hostpkg/*/.stamp
-          rm -rf build_dir/hostpkg/*/.built
-          rm -rf build_dir/hostpkg/*/.prepared
+          echo "----------------------------------------"
+          echo "🧹 清理 staging_dir 中的临时文件（安全）"
+          find staging_dir -type d -name stamp -exec rm -rf {} + 2>/dev/null || true
+          find staging_dir -type d -name packages -exec rm -rf {} + 2>/dev/null || true
+          find staging_dir -type d -name pkginfo -exec rm -rf {} + 2>/dev/null || true
 
-          echo "🧹 额外清理不参与缓存但占空间的目录..."
-          # 下载缓存：不需要进构建缓存，下次可以重新下载
-          rm -rf dl/*
-          # 编译产物：不需要进构建缓存，只保留发布用的那一份
-          rm -rf bin/*
-          # 日志：不进构建缓存，避免占空间
-          rm -rf logs/* 2>/dev/null || true
-          # 临时目录里可能残留的大文件
-          rm -rf tmp/*
+          echo "----------------------------------------"
+          echo "🧹 清理 host 工具链临时文件（安全）"
+          find build_dir/hostpkg -type f -name ".stamp*" -delete 2>/dev/null || true
+          find build_dir/hostpkg -type f -name ".built" -delete 2>/dev/null || true
+          find build_dir/hostpkg -type f -name ".prepared" -delete 2>/dev/null || true
 
+          echo "----------------------------------------"
+          echo "🧹 清理 tmp 目录（安全）"
+          rm -rf tmp/check tmp/info tmp/*.tmp tmp/*.log tmp/*.mk 2>/dev/null || true
+
+          echo "----------------------------------------"
+          echo "🧹 清理下载缓存 dl（安全）"
+          rm -rf dl/* 2>/dev/null || true
+
+          echo "----------------------------------------"
+          echo "🧹 清理 bin 中不需要缓存的目录（安全）"
+          # 绝对不能删除 bin/targets（固件产物）
+          rm -rf bin/packages 2>/dev/null || true
+          rm -rf bin/feeds 2>/dev/null || true
+
+          echo "----------------------------------------"
           echo "📊 清理后目录体积："
           du -sh build_dir || true
           du -sh staging_dir || true
           du -sh dl || true
           du -sh bin || true
 
-          echo "🧹 清理完成"
+          echo "📦 清理后磁盘空间："
+          df -hT .
+
+          echo "🧹 安全清理完成"
 
       - name: 检查缓存目录大小
         run: |
@@ -785,20 +795,58 @@ jobs:
         if: env.UPLOAD_FIRMWARE == 'true' && steps.compile.outputs.status == 'success'
         run: |
           set -e
-          cd openwrt/bin/targets/*/*
-          [ -d packages ] && mv packages ${{ github.workspace }}
+
+          echo "📂 当前工作目录：$(pwd)"
+          echo "📂 列出 openwrt/bin 目录："
+          ls -al openwrt/bin || echo "❌ openwrt/bin 不存在"
+
+          echo "📂 列出 openwrt/bin/targets："
+          ls -al openwrt/bin/targets || echo "❌ openwrt/bin/targets 不存在"
+
+          echo "📂 深度列出 targets 目录结构："
+          find openwrt/bin/targets -maxdepth 4 -type d 2>/dev/null || echo "❌ 未找到任何 targets 子目录"
+
+          # 找到固件目录（更稳）
+          TARGET_DIR=$(find openwrt/bin/targets -type d -mindepth 2 -maxdepth 4 | head -n 1 || true)
+
+          if [ -z "$TARGET_DIR" ]; then
+            echo "❌ 未找到 openwrt/bin/targets 下的固件目录，可能本次未生成固件"
+            exit 1
+          fi
+
+          echo "📁 进入固件目录：$TARGET_DIR"
+          cd "$TARGET_DIR"
+
+          # 移动 packages
+          [ -d packages ] && mv packages "$GITHUB_WORKSPACE"
+
+          echo "📂 固件目录内容："
           ls -la
+
           DEVICE_MODEL="${DEVICE_MODEL:-rax3000m}"
+
+          # 检查是否存在固件文件
+          FW_COUNT=$(ls *sysupgrade* *factory* 2>/dev/null | wc -l || true)
+
+          if [ "$FW_COUNT" -eq 0 ]; then
+            echo "❌ 未找到 sysupgrade 或 factory 固件文件，无法重命名"
+            exit 1
+          fi
+
+          # 重命名固件
           for file in *sysupgrade* *factory*; do
             if [ -f "$file" ] && ! echo "$file" | grep -q -- "-bl2"; then
               TYPE=$(echo "$file" | grep -o "sysupgrade\|factory")
               EXT="${file##*.}"
               NEW_NAME="${DEVICE_MODEL}_${FIRMWARE_VERSION}${FILE_DATE}_${TYPE}.${EXT}"
+              echo "🔧 重命名：$file → $NEW_NAME"
               mv "$file" "$NEW_NAME"
             fi
           done
-          echo "FIRMWARE=$PWD" >> $GITHUB_ENV
-          echo "status=success" >> $GITHUB_OUTPUT
+
+          echo "FIRMWARE=$PWD" >> "$GITHUB_ENV"
+          echo "status=success" >> "$GITHUB_OUTPUT"
+          echo "🎉 固件整理完成"
 
       - name: 上传 bin
         uses: actions/upload-artifact@v4
