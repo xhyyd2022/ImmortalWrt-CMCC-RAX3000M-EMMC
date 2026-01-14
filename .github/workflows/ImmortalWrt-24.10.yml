@@ -516,7 +516,6 @@ jobs:
 
           mkdir -p "$GITHUB_WORKSPACE/build_meta"
 
-
           # -------------------------
           # 加载历史 TOTAL_EVENTS（智能模式）
           # -------------------------
@@ -526,7 +525,7 @@ jobs:
             TOTAL_EVENTS=$(cat "$TOTAL_FILE")
             echo "📌 读取历史总事件数：$TOTAL_EVENTS"
           else
-            TOTAL_EVENTS=0
+            TOTAL_EVENTS=∞
             echo "📌 未找到历史事件数，将在本次构建结束后学习"
           fi
 
@@ -571,8 +570,6 @@ jobs:
               # -------------------------
               if echo "$LINE" | grep -qE "make\[[0-9]+\].*-C .+ compile"; then
                 COMPILE_COUNT=$((COMPILE_COUNT + 1))
-                echo "🔧 编译事件：$COMPILE_COUNT / $TOTAL_EVENTS"
-                LAST_OUTPUT_TIME=$NOW
               fi
 
               # -------------------------
@@ -610,7 +607,7 @@ jobs:
           # -------------------------
           # 正式编译
           # -------------------------
-          make -j$(nproc) 2>&1 | tee build.log
+          stdbuf -oL -eL make -j$(nproc) 2>&1 | stdbuf -oL tee build.log
           RET=${PIPESTATUS[0]}
 
           kill $monitor_pid || true
