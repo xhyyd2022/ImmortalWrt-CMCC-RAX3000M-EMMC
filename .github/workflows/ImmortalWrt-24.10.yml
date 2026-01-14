@@ -455,6 +455,16 @@ jobs:
           # 禁用 Rust
           inject_config "$GITHUB_WORKSPACE/config/rust_disable.config"
 
+      - name: 分区表修改
+        run: |
+          cd openwrt
+          ls -l target/linux/mediatek/image
+          sed -i '/Device\/cmcc_rax3000m_common/,/endef/ s/IMAGE_SIZE := .*/IMAGE_SIZE := 59600m/' \
+            target/linux/mediatek/image/filogic.mk
+
+          echo "=== 修改后的 IMAGE_SIZE 行 ==="
+          grep -n "IMAGE_SIZE" target/linux/mediatek/image/filogic.mk
+
       - name: 添加 keepalived-ha 插件
         if: env.ENABLE_KEEPALIVED == 'true'
         run: |
