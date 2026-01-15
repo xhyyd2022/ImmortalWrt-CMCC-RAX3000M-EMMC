@@ -486,15 +486,13 @@ jobs:
           cd openwrt
           make download -j$(nproc)
 
-      - name: 恢复构建缓存
+      - name: 恢复 ccache 缓存
         uses: actions/cache@v4
         with:
-          path: |
-            openwrt/staging_dir
-            openwrt/build_dir/toolchain-*
-          key: buildcache-${{ github.event.inputs.device_model }}-${{ env.REPO_BRANCH }}-${{ env.LATEST_SHA }}
+          path: ~/.cache/ccache
+          key: ccache-${{ github.event.inputs.device_model }}-${{ env.REPO_BRANCH }}
           restore-keys: |
-            buildcache-${{ github.event.inputs.device_model }}-${{ env.REPO_BRANCH }}-
+            ccache-${{ github.event.inputs.device_model }}-
 
       - name: 恢复构建元数据缓存
         uses: actions/cache@v4
@@ -511,7 +509,6 @@ jobs:
           echo "🚀 正在编译固件..."
           # 创建日志文件
           : > build.log
-          mkdir -p "$GITHUB_WORKSPACE/build_meta"
           # -------------------------
           # 磁盘增长缓存
           # -------------------------
@@ -595,6 +592,14 @@ jobs:
             done
           ) &
           monitor_pid=$!
+
+          # 使用ccache
+          mkdir -p "$GITHUB_WORKSPACE/build_meta"
+          export CCACHE_DIR=~/.cache/ccache
+          export CCACHE_COMPRESS=1
+          export CCACHE_MAXSIZE=5G
+          export CCACHE=1
+
           # -------------------------
           # 正式编译
           # -------------------------
@@ -628,83 +633,22 @@ jobs:
           echo "FILE_DATE=_$(date +"%Y%m%d%H%M")" >> $GITHUB_ENV
           echo "✅ 编译成功！"
 
-      - name: 清理构建缓存中不必要的文件
+      - name: 查看 ccache 命中率和缓存大小
         run: |
-          cd openwrt
+          echo "=== ccache 统计信息 ==="
+          ccache -s || true
 
-          echo "🧹 开始安全清理构建缓存..."
+          echo "=== ccache 目录大小 ==="
+          du -sh ~/.cache/ccache || true
 
-          echo "📂 当前目录：$(pwd)"
-          echo "📂 清理前空间："
-          df -hT .
-
-          echo "----------------------------------------"
-          echo "🧹 清理 build_dir 中的临时文件（安全）"
-          find build_dir -type d -name tmp -exec rm -rf {} + 2>/dev/null || true
-          find build_dir -type d -name .pkgdir -exec rm -rf {} + 2>/dev/null || true
-          find build_dir -type f -name ".stamp*" -delete 2>/dev/null || true
-          find build_dir -type f -name ".built" -delete 2>/dev/null || true
-          find build_dir -type f -name ".prepared" -delete 2>/dev/null || true
-          find build_dir -type f -name ".configured" -delete 2>/dev/null || true
-          find build_dir -type f -name ".installed" -delete 2>/dev/null || true
-          find build_dir -type f -name ".ipk" -delete 2>/dev/null || true
-          find build_dir -type d -name "ipkg-*" -exec rm -rf {} + 2>/dev/null || true
-
-          echo "----------------------------------------"
-          echo "🧹 清理 staging_dir 中的临时文件（安全）"
-          find staging_dir -type d -name stamp -exec rm -rf {} + 2>/dev/null || true
-          find staging_dir -type d -name packages -exec rm -rf {} + 2>/dev/null || true
-          find staging_dir -type d -name pkginfo -exec rm -rf {} + 2>/dev/null || true
-
-          echo "----------------------------------------"
-          echo "🧹 清理 host 工具链临时文件（安全）"
-          find build_dir/hostpkg -type f -name ".stamp*" -delete 2>/dev/null || true
-          find build_dir/hostpkg -type f -name ".built" -delete 2>/dev/null || true
-          find build_dir/hostpkg -type f -name ".prepared" -delete 2>/dev/null || true
-
-          echo "----------------------------------------"
-          echo "🧹 清理 tmp 目录（安全）"
-          rm -rf tmp/check tmp/info tmp/*.tmp tmp/*.log tmp/*.mk 2>/dev/null || true
-
-          echo "----------------------------------------"
-          echo "🧹 清理下载缓存 dl（安全）"
-          rm -rf dl/* 2>/dev/null || true
-
-          echo "----------------------------------------"
-          echo "🧹 清理 bin 中不需要缓存的目录（安全）"
-          # 绝对不能删除 bin/targets（固件产物）
-          rm -rf bin/packages 2>/dev/null || true
-          rm -rf bin/feeds 2>/dev/null || true
-
-          echo "----------------------------------------"
-          echo "📊 清理后目录体积："
-          du -sh build_dir || true
-          du -sh staging_dir || true
-          du -sh dl || true
-          du -sh bin || true
-
-          echo "📦 清理后磁盘空间："
-          df -hT .
-
-          echo "🧹 安全清理完成"
-
-      - name: 检查缓存目录大小
-        run: |
-          cd openwrt
-          echo "=== 缓存目录体积检查 ==="
-          du -sh build_dir || true
-          du -sh staging_dir || true
-          du -sh tmp || true
-          df -hT
-
-      - name: 保存构建缓存
+      - name: 保存 ccache 缓存
         if: steps.compile.outputs.status == 'success'
         uses: actions/cache@v4
         with:
-          path: |
-            openwrt/staging_dir
-            openwrt/build_dir/toolchain-*
-          key: buildcache-${{ github.event.inputs.device_model }}-${{ env.REPO_BRANCH }}-${{ env.LATEST_SHA }}
+          path: ~/.cache/ccache
+          key: ccache-${{ github.event.inputs.device_model }}-${{ env.REPO_BRANCH }}
+          restore-keys: |
+            ccache-${{ github.event.inputs.device_model }}-
 
       - name: 保存构建元数据缓存
         if: steps.compile.outputs.status == 'success'
