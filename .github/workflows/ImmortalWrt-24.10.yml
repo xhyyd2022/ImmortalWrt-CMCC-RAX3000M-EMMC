@@ -507,7 +507,7 @@ jobs:
       - name: 获取磁盘增长缓存
         uses: actions/cache@v4
         with:
-          path: disk_growth.txt
+          path: openwrt/disk_growth.txt
           key: ${{ env.REPO_PATH }}-${{ env.REPO_BRANCH }}-disk_growth
 
       - name: 编译固件
@@ -621,7 +621,10 @@ jobs:
           THRESHOLD=$((MAX_GROWTH / 100))
           DIFF=$((DELTA - MAX_GROWTH))
           [ $DIFF -lt 0 ] && DIFF=$(( -DIFF ))
-          if [ "$DIFF" -gt "$THRESHOLD" ]; then
+          if [ ! -f disk_growth.txt ]; then
+            echo "$DELTA" > disk_growth.txt
+            echo "📁 首次运行，已初始化磁盘增长缓存：$(echo $((DELTA/1024/1024/1024))) GB"
+          elif [ "$DIFF" -gt "$THRESHOLD" ]; then
             echo "$DELTA" > disk_growth.txt
             echo "📁 磁盘增长变化超过 1%，已更新缓存为：$(echo $((DELTA/1024/1024/1024))) GB"
           else
@@ -874,12 +877,12 @@ jobs:
             cat last_checked_sha.txt
           fi
           echo "检查 disk_growth.txt 文件内容"
-          if [ ! -f disk_growth.txt ]; then
+          if [ ! -f openwrt/disk_growth.txt ]; then
             echo "错误：disk_growth.txt 文件不存在"
             exit 1
           else
             echo "disk_growth.txt 文件存在"
-            cat disk_growth.txt
+            cat openwrt/disk_growth.txt
           fi
 
       - name: 删除指定缓存
@@ -923,10 +926,10 @@ jobs:
           path: last_checked_sha.txt
           key: ${{ env.REPO_PATH }}-${{ env.REPO_BRANCH }}-last-checked-sha
 
-      - name: 保存源仓库哈希缓存
+      - name: 保存磁盘增长缓存
         uses: actions/cache@v4
         with:
-          path: disk_growth.txt
+          path: openwrt/disk_growth.txt
           key: ${{ env.REPO_PATH }}-${{ env.REPO_BRANCH }}-disk_growth
 
       - name: 清理旧 Releases
