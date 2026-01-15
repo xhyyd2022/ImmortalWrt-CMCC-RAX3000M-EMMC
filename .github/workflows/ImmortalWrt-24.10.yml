@@ -513,6 +513,8 @@ jobs:
           # 磁盘增长缓存
           # -------------------------
           CACHE_FILE="$GITHUB_WORKSPACE/build_meta/disk_growth.txt"
+          ls -l $GITHUB_WORKSPACE/build_meta
+
           # 默认最大增长（35GB）
           DEFAULT_MAX=$((35 * 1024 * 1024 * 1024))
           # 如果缓存存在 → 读取内容
