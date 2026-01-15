@@ -304,6 +304,13 @@ jobs:
           sudo mkdir -p "$GITHUB_WORKSPACE/workdir"
           sudo chown "$USER:$GROUPS" "$GITHUB_WORKSPACE/workdir"
 
+          # 使用ccache
+          mkdir -p ~/.cache/ccache
+          export CCACHE_DIR=~/.cache/ccache
+          export CCACHE_COMPRESS=1
+          export CCACHE_MAXSIZE=5G
+          export CCACHE=1
+
       - name: 扩容 /tmp 到 4GB
         run: |
           # 如果 /tmp 本身就是 tmpfs，它会调整大小；如果不是，它会挂载一个新的
@@ -479,8 +486,10 @@ jobs:
       - name: 生成编译配置
         run: |
           cd openwrt
-          make defconfig
           echo "CONFIG_CCACHE=y" >> .config
+          make defconfig
+          # 验证缓存开启
+          grep CONFIG_CCACHE .config || echo "❌ CONFIG_CCACHE 不存在"
 
       - name: 下载源码包
         run: |
@@ -590,12 +599,6 @@ jobs:
             done
           ) &
           monitor_pid=$!
-
-          # 使用ccache
-          export CCACHE_DIR=~/.cache/ccache
-          export CCACHE_COMPRESS=1
-          export CCACHE_MAXSIZE=5G
-          export CCACHE=1
 
           # -------------------------
           # 正式编译
