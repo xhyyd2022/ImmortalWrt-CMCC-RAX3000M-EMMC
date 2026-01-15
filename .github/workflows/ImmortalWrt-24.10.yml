@@ -306,10 +306,8 @@ jobs:
 
           # 使用ccache
           mkdir -p ~/.cache/ccache
+          echo "USE_CCACHE=1" >> $GITHUB_ENV
           echo "CCACHE_DIR=$HOME/.cache/ccache" >> $GITHUB_ENV
-          echo "CCACHE_COMPRESS=1" >> $GITHUB_ENV
-          echo "CCACHE_MAXSIZE=5G" >> $GITHUB_ENV
-          echo "CCACHE=1" >> $GITHUB_ENV
 
       - name: 扩容 /tmp 到 4GB
         run: |
@@ -514,6 +512,11 @@ jobs:
           echo "🚀 正在编译固件..."
           # 创建日志文件
           : > build.log
+
+          # 使用ccache
+          export USE_CCACHE=1
+          export CCACHE_DIR="$CCACHE_DIR"
+
           # -------------------------
           # 磁盘增长缓存
           # -------------------------
