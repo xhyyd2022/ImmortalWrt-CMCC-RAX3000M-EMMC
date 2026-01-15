@@ -306,10 +306,10 @@ jobs:
 
           # 使用ccache
           mkdir -p ~/.cache/ccache
-          export CCACHE_DIR=~/.cache/ccache
-          export CCACHE_COMPRESS=1
-          export CCACHE_MAXSIZE=5G
-          export CCACHE=1
+          echo "CCACHE_DIR=$HOME/.cache/ccache" >> $GITHUB_ENV
+          echo "CCACHE_COMPRESS=1" >> $GITHUB_ENV
+          echo "CCACHE_MAXSIZE=5G" >> $GITHUB_ENV
+          echo "CCACHE=1" >> $GITHUB_ENV
 
       - name: 扩容 /tmp 到 4GB
         run: |
@@ -494,10 +494,7 @@ jobs:
       - name: 生成编译配置
         run: |
           cd openwrt
-          echo "CONFIG_CCACHE=y" >> .config
           make defconfig
-          # 验证缓存开启
-          grep CONFIG_CCACHE .config || echo "❌ CONFIG_CCACHE 不存在"
 
       - name: 下载源码包
         run: |
