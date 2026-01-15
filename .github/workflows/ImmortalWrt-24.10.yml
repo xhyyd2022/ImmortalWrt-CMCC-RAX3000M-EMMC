@@ -339,6 +339,14 @@ jobs:
 
           ln -sf "${{ github.workspace }}/workdir/openwrt" "${{ github.workspace }}/openwrt"
 
+      - name: 恢复 ccache 缓存
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ccache
+          key: ccache-${{ env.DEVICE_MODEL }}-${{ env.REPO_BRANCH }}
+          restore-keys: |
+            ccache-${{ env.DEVICE_MODEL }}-
+
       - name: 获取源码提交 SHA
         run: |
           if [ -f last_checked_sha.txt ]; then
@@ -496,14 +504,6 @@ jobs:
           cd openwrt
           make download -j$(nproc)
 
-      - name: 恢复 ccache 缓存
-        uses: actions/cache@v4
-        with:
-          path: ~/.cache/ccache
-          key: ccache-${{ github.event.inputs.device_model }}-${{ env.REPO_BRANCH }}
-          restore-keys: |
-            ccache-${{ github.event.inputs.device_model }}-
-
       - name: 获取磁盘增长缓存
         uses: actions/cache@v4
         with:
@@ -649,9 +649,9 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~/.cache/ccache
-          key: ccache-${{ github.event.inputs.device_model }}-${{ env.REPO_BRANCH }}
+          key: ccache-${{ env.DEVICE_MODEL }}-${{ env.REPO_BRANCH }}
           restore-keys: |
-            ccache-${{ github.event.inputs.device_model }}-
+            ccache-${{ env.DEVICE_MODEL }}-
 
       - name: 上传编译日志
         if: failure()
@@ -900,7 +900,7 @@ jobs:
             --repo ${{ github.repository }}
           sleep 5
 
-          PREFIX="ccache-${{ github.event.inputs.device_model }}-${{ env.REPO_BRANCH }}"
+          PREFIX="ccache-${{ env.DEVICE_MODEL }}-${{ env.REPO_BRANCH }}"
           echo "清理缓存前："
           gh cache list --json id,key,createdAt | jq -r '.[] | "\(.createdAt) \(.key) \(.id)"'
 
