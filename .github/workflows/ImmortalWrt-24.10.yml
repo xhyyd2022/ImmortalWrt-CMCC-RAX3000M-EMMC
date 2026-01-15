@@ -494,13 +494,11 @@ jobs:
           restore-keys: |
             ccache-${{ github.event.inputs.device_model }}-
 
-      - name: 恢复构建元数据缓存
+      - name: 获取磁盘增长缓存
         uses: actions/cache@v4
         with:
-          path: ${{ github.workspace }}/build_meta
-          key: build-meta-${{ env.REPO_BRANCH }}-${{ github.event.inputs.device_model }}
-          restore-keys: |
-            build-meta-${{ env.REPO_BRANCH }}-
+          path: disk_growth.txt
+          key: ${{ env.REPO_PATH }}-${{ env.REPO_BRANCH }}-disk_growth
 
       - name: 编译固件
         id: compile
@@ -512,19 +510,16 @@ jobs:
           # -------------------------
           # 磁盘增长缓存
           # -------------------------
-          CACHE_FILE="$GITHUB_WORKSPACE/build_meta/disk_growth.txt"
-          ls -l $GITHUB_WORKSPACE/build_meta
-
           # 默认最大增长（35GB）
           DEFAULT_MAX=$((35 * 1024 * 1024 * 1024))
-          # 如果缓存存在 → 读取内容
-          if [ -f "$CACHE_FILE" ]; then
-            MAX_GROWTH=$(cat "$CACHE_FILE")
+          if [ -f disk_growth.txt ]; then
+            MAX_GROWTH=$(cat disk_growth.txt)
             echo "📁 已加载历史磁盘增长值：$(echo $((MAX_GROWTH/1024/1024/1024))) GB"
           else
             MAX_GROWTH=$DEFAULT_MAX
             echo "📁 未找到历史缓存，使用默认最大增长：35GB"
           fi
+
           # 记录初始磁盘占用
           START=$(df -B1 "${GITHUB_WORKSPACE}" | awk 'NR==2{print $3}')
           # -------------------------
@@ -624,7 +619,7 @@ jobs:
           DIFF=$((DELTA - MAX_GROWTH))
           [ $DIFF -lt 0 ] && DIFF=$(( -DIFF ))
           if [ "$DIFF" -gt "$THRESHOLD" ]; then
-            echo "$DELTA" > "$CACHE_FILE"
+            echo "$DELTA" > disk_growth.txt
             echo "📁 磁盘增长变化超过 1%，已更新缓存为：$(echo $((DELTA/1024/1024/1024))) GB"
           else
             echo "📁 变化未超过 1%，不更新缓存"
@@ -651,13 +646,6 @@ jobs:
           key: ccache-${{ github.event.inputs.device_model }}-${{ env.REPO_BRANCH }}
           restore-keys: |
             ccache-${{ github.event.inputs.device_model }}-
-
-      - name: 保存构建元数据缓存
-        if: steps.compile.outputs.status == 'success'
-        uses: actions/cache@v4
-        with:
-          path: ${{ github.workspace }}/build_meta
-          key: build-meta-${{ env.REPO_BRANCH }}-${{ github.event.inputs.device_model }}
 
       - name: 上传编译日志
         if: failure()
@@ -882,6 +870,14 @@ jobs:
             echo "last_checked_sha.txt 文件存在"
             cat last_checked_sha.txt
           fi
+          echo "检查 disk_growth.txt 文件内容"
+          if [ ! -f disk_growth.txt ]; then
+            echo "错误：disk_growth.txt 文件不存在"
+            exit 1
+          else
+            echo "disk_growth.txt 文件存在"
+            cat disk_growth.txt
+          fi
 
       - name: 删除指定缓存
         continue-on-error: true
@@ -893,6 +889,8 @@ jobs:
           gh cache delete "${{ env.REPO_PATH }}-${{ env.REPO_BRANCH }}-last-build-sha" \
             --repo ${{ github.repository }}
           gh cache delete "${{ env.REPO_PATH }}-${{ env.REPO_BRANCH }}-last-checked-sha" \
+            --repo ${{ github.repository }}
+          gh cache delete "${{ env.REPO_PATH }}-${{ env.REPO_BRANCH }}-disk_growth" \
             --repo ${{ github.repository }}
           sleep 5
 
@@ -921,6 +919,12 @@ jobs:
         with:
           path: last_checked_sha.txt
           key: ${{ env.REPO_PATH }}-${{ env.REPO_BRANCH }}-last-checked-sha
+
+      - name: 保存源仓库哈希缓存
+        uses: actions/cache@v4
+        with:
+          path: disk_growth.txt
+          key: ${{ env.REPO_PATH }}-${{ env.REPO_BRANCH }}-disk_growth
 
       - name: 清理旧 Releases
         if: steps.tag.outputs.status == 'success'
