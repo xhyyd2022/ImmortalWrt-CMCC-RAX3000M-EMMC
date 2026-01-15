@@ -480,6 +480,7 @@ jobs:
         run: |
           cd openwrt
           make defconfig
+          echo "CONFIG_CCACHE=y" >> .config
 
       - name: 下载源码包
         run: |
@@ -591,7 +592,6 @@ jobs:
           monitor_pid=$!
 
           # 使用ccache
-          mkdir -p "$GITHUB_WORKSPACE/build_meta"
           export CCACHE_DIR=~/.cache/ccache
           export CCACHE_COMPRESS=1
           export CCACHE_MAXSIZE=5G
