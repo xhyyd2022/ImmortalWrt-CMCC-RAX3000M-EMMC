@@ -80,13 +80,13 @@ jobs:
 
           if [ -n "${{ env.CUSTOM_LAST_BUILD_SHA }}" ]; then
             echo "删除 last-build-sha 缓存"
-            gh cache delete "${{ env.REPO_PATH }}-${{ env.REPO_BRANCH }}-last-build-sha" \
+            gh cache delete "${{ env.REPO_PATH }}-${{ env.REPO_BRANCH }}-${{ env.DEVICE_MODEL }}-last-build-sha" \
               --repo ${{ github.repository }}
           fi
 
           if [ -n "${{ env.CUSTOM_LAST_CHECKED_SHA }}" ]; then
             echo "删除 last-checked-sha 缓存"
-            gh cache delete "${{ env.REPO_PATH }}-${{ env.REPO_BRANCH }}-last-checked-sha" \
+            gh cache delete "${{ env.REPO_PATH }}-${{ env.REPO_BRANCH }}-${{ env.DEVICE_MODEL }}-last-checked-sha" \
               --repo ${{ github.repository }}
           fi
 
@@ -99,11 +99,11 @@ jobs:
         uses: actions/cache@v4
         with:
           path: last_checked_sha.txt
-          key: ${{ env.REPO_PATH }}-${{ env.REPO_BRANCH }}-last-checked-sha
+          key: ${{ env.REPO_PATH }}-${{ env.REPO_BRANCH }}-${{ env.DEVICE_MODEL }}-last-checked-sha
 
       - name: 设置 last_build_sha 缓存
         if: env.UPDATE_BUILD_SHA == 'true'
         uses: actions/cache@v4
         with:
           path: last_build_sha.txt
-          key: ${{ env.REPO_PATH }}-${{ env.REPO_BRANCH }}-last-build-sha
+          key: ${{ env.REPO_PATH }}-${{ env.REPO_BRANCH }}-${{ env.DEVICE_MODEL }}-last-build-sha

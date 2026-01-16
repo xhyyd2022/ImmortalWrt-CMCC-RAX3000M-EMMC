@@ -80,12 +80,15 @@ permissions:
   actions: write
 
 env:
+  DEVICE_MODEL: ${{ github.event.inputs.device_model || 'cmcc_rax3000m' }}
   REPO_URL: ${{ github.event.inputs.repo_url || 'https://github.com/immortalwrt/immortalwrt' }}
   REPO_BRANCH: ${{ github.event.inputs.repo_branch || 'openwrt-24.10' }}
   FEEDS_CONF: feeds.conf.default
   CONFIG_FILE: ${{ github.event.inputs.config_file || '24.10.config' }}
   DIY_P1_SH: scripts/24.10/diy-part1.sh
   DIY_P2_SH: scripts/24.10/diy-part2.sh
+  UPLOAD_BIN_DIR: ${{ github.event.inputs.upload_bin_dir }}
+  UPLOAD_PACKAGES_DIR: ${{ github.event.inputs.upload_packages_dir }}
   UPLOAD_FIRMWARE: true
   UPLOAD_RELEASE: true
   TZ: Asia/Shanghai
@@ -116,7 +119,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: last_checked_sha.txt
-          key: ${{ env.REPO_PATH }}-${{ env.REPO_BRANCH }}-last-checked-sha
+          key: ${{ env.REPO_PATH }}-${{ env.REPO_BRANCH }}-${{ env.DEVICE_MODEL }}-last-checked-sha
 
       - name: 安装 GitHub CLI
         run: |
@@ -177,14 +180,15 @@ jobs:
     steps:
       - name: 调试信息
         run: |
-          DEVICE="${{ github.event.inputs.device_model || 'cmcc_rax3000m' }}"
-          echo "DEVICE_MODEL=$DEVICE" >> $GITHUB_ENV
-          echo "DEVICE_NAME=_$DEVICE" >> $GITHUB_ENV
+          echo "DEVICE_MODEL=$DEVICE_MODEL" >> $GITHUB_ENV
+          echo "DEVICE_NAME=_$DEVICE_MODEL" >> $GITHUB_ENV
+
           echo "触发方式: ${{ github.event_name }}"
           echo "EVENT_TRIGGER_METHOD=${{ github.event_name }}" >> $GITHUB_ENV
-          echo "设备型号: $DEVICE"
-          echo "上传 bin 目录: ${{ github.event.inputs.upload_bin_dir }}"
-          echo "上传 packages 目录: ${{ github.event.inputs.upload_packages_dir }}"
+
+          echo "设备型号: $DEVICE_MODEL"
+          echo "上传 bin 目录: $UPLOAD_BIN_DIR"
+          echo "上传 packages 目录: $UPLOAD_PACKAGES_DIR"
 
       - name: 扩大磁盘空间
         uses: easimon/maximize-build-space@v10
@@ -235,13 +239,13 @@ jobs:
         uses: actions/cache@v4
         with:
           path: last_build_sha.txt
-          key: ${{ env.REPO_PATH }}-${{ env.REPO_BRANCH }}-last-build-sha
+          key: ${{ env.REPO_PATH }}-${{ env.REPO_BRANCH }}-${{ env.DEVICE_MODEL }}-last-build-sha
 
       - name: 获取上次源仓库哈希缓存
         uses: actions/cache@v4
         with:
           path: last_checked_sha.txt
-          key: ${{ env.REPO_PATH }}-${{ env.REPO_BRANCH }}-last-checked-sha
+          key: ${{ env.REPO_PATH }}-${{ env.REPO_BRANCH }}-${{ env.DEVICE_MODEL }}-last-checked-sha
 
       - name: 设置最新提交信息
         run: |
@@ -336,9 +340,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~/.cache/ccache
-          key: ccache-${{ env.DEVICE_MODEL }}-${{ env.REPO_BRANCH }}
-          restore-keys: |
-            ccache-${{ env.DEVICE_MODEL }}-
+          key: ${{ env.REPO_PATH }}-${{ env.REPO_BRANCH }}-${{ env.DEVICE_MODEL }}-ccache
 
       - name: 验证 ccache 缓存
         run: |
@@ -346,8 +348,8 @@ jobs:
           if [ -d ~/.cache/ccache ]; then
             echo "缓存目录存在 ✓"
           else
-            echo "缓存目录不存在 ✗（恢复失败）"
-            exit 1  # 可选：直接失败 workflow
+            echo "缓存目录不存在（首次运行正常）"
+            exit 0
           fi
 
           # 2. 显示总大小
@@ -544,8 +546,8 @@ jobs:
       - name: 获取磁盘增长缓存
         uses: actions/cache@v4
         with:
-          path: openwrt/disk_growth.txt
-          key: ${{ env.REPO_PATH }}-${{ env.REPO_BRANCH }}-disk_growth
+          path: openwrt/disk-growth.txt
+          key: ${{ env.REPO_PATH }}-${{ env.REPO_BRANCH }}-${{ env.DEVICE_MODEL }}-disk-growth
 
       - name: 编译固件
         id: compile
@@ -564,8 +566,8 @@ jobs:
           # -------------------------
           # 默认最大增长（35GB）
           DEFAULT_MAX=$((35 * 1024 * 1024 * 1024))
-          if [ -f disk_growth.txt ]; then
-            MAX_GROWTH=$(cat disk_growth.txt)
+          if [ -f disk-growth.txt ]; then
+            MAX_GROWTH=$(cat disk-growth.txt)
             echo "📁 已加载历史磁盘增长值：$(echo $((MAX_GROWTH/1024/1024/1024))) GB"
           else
             MAX_GROWTH=$DEFAULT_MAX
@@ -663,18 +665,17 @@ jobs:
           THRESHOLD=$((MAX_GROWTH / 100))
           DIFF=$((DELTA - MAX_GROWTH))
           [ $DIFF -lt 0 ] && DIFF=$(( -DIFF ))
-          if [ ! -f disk_growth.txt ]; then
-            echo "$DELTA" > disk_growth.txt
+          if [ ! -f disk-growth.txt ]; then
+            echo "$DELTA" > disk-growth.txt
             echo "📁 首次运行，已初始化磁盘增长缓存：$(echo $((DELTA/1024/1024/1024))) GB"
           elif [ "$DIFF" -gt "$THRESHOLD" ]; then
-            echo "$DELTA" > disk_growth.txt
+            echo "$DELTA" > disk-growth.txt
             echo "📁 磁盘增长变化超过 1%，已更新缓存为：$(echo $((DELTA/1024/1024/1024))) GB"
           else
             echo "📁 变化未超过 1%，不更新缓存"
           fi
 
           echo "status=success" >> $GITHUB_OUTPUT
-          echo "DEVICE_NAME=_$DEVICE_MODEL" >> $GITHUB_ENV
           echo "FILE_DATE=_$(date +"%Y%m%d%H%M")" >> $GITHUB_ENV
           echo "✅ 编译成功！"
 
@@ -685,13 +686,6 @@ jobs:
 
           echo "=== ccache 目录大小 ==="
           du -sh ~/.cache/ccache || true
-
-      - name: 保存 ccache 缓存
-        if: steps.compile.outputs.status == 'success'
-        uses: actions/cache@v4
-        with:
-          path: ~/.cache/ccache
-          key: ccache-${{ env.DEVICE_MODEL }}-${{ env.REPO_BRANCH }}
 
       - name: 上传编译日志
         if: failure()
@@ -784,14 +778,14 @@ jobs:
 
       - name: 上传 bin
         uses: actions/upload-artifact@v4
-        if: steps.compile.outputs.status == 'success' && github.event_name == 'workflow_dispatch' && github.event.inputs.upload_bin_dir == 'true'
+        if: steps.compile.outputs.status == 'success' && github.event_name == 'workflow_dispatch' && env.UPLOAD_BIN_DIR == 'true'
         with:
           name: OpenWrt_bin${{ env.DEVICE_NAME }}${{ env.FILE_DATE }}
           path: openwrt/bin
 
       - name: 上传 packages
         uses: actions/upload-artifact@v4
-        if: steps.compile.outputs.status == 'success' && github.event_name == 'workflow_dispatch' && github.event.inputs.upload_packages_dir == 'true'
+        if: steps.compile.outputs.status == 'success' && github.event_name == 'workflow_dispatch' && env.UPLOAD_PACKAGES_DIR == 'true'
         with:
           name: OpenWrt_packages${{ env.DEVICE_NAME }}${{ env.FILE_DATE }}
           path: ${{ github.workspace }}/packages
@@ -916,13 +910,13 @@ jobs:
             echo "last_checked_sha.txt 文件存在"
             cat last_checked_sha.txt
           fi
-          echo "检查 disk_growth.txt 文件内容"
-          if [ ! -f openwrt/disk_growth.txt ]; then
-            echo "错误：disk_growth.txt 文件不存在"
+          echo "检查 disk-growth.txt 文件内容"
+          if [ ! -f openwrt/disk-growth.txt ]; then
+            echo "错误：disk-growth.txt 文件不存在"
             exit 1
           else
-            echo "disk_growth.txt 文件存在"
-            cat openwrt/disk_growth.txt
+            echo "disk-growth.txt 文件存在"
+            cat openwrt/disk-growth.txt
           fi
 
       - name: 删除指定缓存
@@ -932,45 +926,39 @@ jobs:
         run: |
           echo "当前的缓存列表"
           gh cache list
-          gh cache delete "${{ env.REPO_PATH }}-${{ env.REPO_BRANCH }}-last-build-sha" \
+          gh cache delete "${{ env.REPO_PATH }}-${{ env.REPO_BRANCH }}-${{ env.DEVICE_MODEL }}-last-build-sha" \
             --repo ${{ github.repository }}
-          gh cache delete "${{ env.REPO_PATH }}-${{ env.REPO_BRANCH }}-last-checked-sha" \
+          gh cache delete "${{ env.REPO_PATH }}-${{ env.REPO_BRANCH }}-${{ env.DEVICE_MODEL }}-last-checked-sha" \
             --repo ${{ github.repository }}
-          gh cache delete "${{ env.REPO_PATH }}-${{ env.REPO_BRANCH }}-disk_growth" \
+          gh cache delete "${{ env.REPO_PATH }}-${{ env.REPO_BRANCH }}-${{ env.DEVICE_MODEL }}-disk-growth" \
             --repo ${{ github.repository }}
-          sleep 5
-
-          PREFIX="ccache-${{ env.DEVICE_MODEL }}-${{ env.REPO_BRANCH }}"
-          echo "清理缓存前："
-          gh cache list --json id,key,createdAt | jq -r '.[] | "\(.createdAt) \(.key) \(.id)"'
-
-          # 找出所有匹配的缓存，只保留最新的缓存
-          gh cache list --json id,key,createdAt \
-            | jq -r '.[] | select(.key | startswith("'"$PREFIX"'")) | "\(.createdAt) \(.id)"' \
-            | sort -r \
-            | tail -n +2 \
-            | awk '{print $2}' \
-            | xargs -I {} gh cache delete {}
-
-          gh cache list
+          gh cache delete "${{ env.REPO_PATH }}-${{ env.REPO_BRANCH }}-${{ env.DEVICE_MODEL }}-ccache" \
+            --repo ${{ github.repository }}
 
       - name: 保存本仓库哈希缓存
         uses: actions/cache@v4
         with:
           path: last_build_sha.txt
-          key: ${{ env.REPO_PATH }}-${{ env.REPO_BRANCH }}-last-build-sha
+          key: ${{ env.REPO_PATH }}-${{ env.REPO_BRANCH }}-${{ env.DEVICE_MODEL }}-last-build-sha
 
       - name: 保存源仓库哈希缓存
         uses: actions/cache@v4
         with:
           path: last_checked_sha.txt
-          key: ${{ env.REPO_PATH }}-${{ env.REPO_BRANCH }}-last-checked-sha
+          key: ${{ env.REPO_PATH }}-${{ env.REPO_BRANCH }}-${{ env.DEVICE_MODEL }}-last-checked-sha
 
       - name: 保存磁盘增长缓存
         uses: actions/cache@v4
         with:
-          path: openwrt/disk_growth.txt
-          key: ${{ env.REPO_PATH }}-${{ env.REPO_BRANCH }}-disk_growth
+          path: openwrt/disk-growth.txt
+          key: ${{ env.REPO_PATH }}-${{ env.REPO_BRANCH }}-${{ env.DEVICE_MODEL }}-disk-growth
+
+      - name: 保存 ccache 缓存
+        if: steps.compile.outputs.status == 'success'
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ccache
+          key: ${{ env.REPO_PATH }}-${{ env.REPO_BRANCH }}-${{ env.DEVICE_MODEL }}-ccache
 
       - name: 清理旧 Releases
         if: steps.tag.outputs.status == 'success'
