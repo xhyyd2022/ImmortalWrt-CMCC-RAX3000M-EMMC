@@ -340,6 +340,28 @@ jobs:
           restore-keys: |
             ccache-${{ env.DEVICE_MODEL }}-
 
+      - name: 验证 ccache 缓存
+        run: |
+          # 1. 检查目录是否存在且有内容
+          if [ -d ~/.cache/ccache ]; then
+            echo "缓存目录存在 ✓"
+          else
+            echo "缓存目录不存在 ✗（恢复失败）"
+            exit 1  # 可选：直接失败 workflow
+          fi
+
+          # 2. 显示总大小
+          du -sh ~/.cache/ccache || echo "无法读取大小"
+
+          # 3. 显示前几个大文件/子目录
+          du -h --max-depth=1 ~/.cache/ccache 2>/dev/null | sort -hr | head -n 8 || true
+
+          # 4. ccache 自己统计的大小
+          ccache -s | grep "Cache size" || echo "ccache 未运行"
+
+          # 5. 随机检查一个典型文件
+          find ~/.cache/ccache -type f -name "*.o" -print -quit | xargs -I {} ls -lh {} 2>/dev/null || echo "无 .o 文件（首次编译正常）"
+
       - name: 获取源码提交 SHA
         run: |
           if [ -f last_checked_sha.txt ]; then
