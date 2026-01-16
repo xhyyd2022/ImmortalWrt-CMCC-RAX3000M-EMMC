@@ -678,6 +678,14 @@ jobs:
           echo "FILE_DATE=_$(date +"%Y%m%d%H%M")" >> $GITHUB_ENV
           echo "✅ 编译成功！"
 
+      - name: 查看 ccache 命中率和缓存大小
+        run: |
+          echo "=== ccache 统计信息 ==="
+          ccache -s || true
+
+          echo "=== ccache 目录大小 ==="
+          du -sh ~/.cache/ccache || true
+
       - name: 保存 ccache 缓存
         if: steps.compile.outputs.status == 'success'
         uses: actions/cache@v4
