@@ -304,11 +304,6 @@ jobs:
           sudo mkdir -p "$GITHUB_WORKSPACE/workdir"
           sudo chown "$USER:$GROUPS" "$GITHUB_WORKSPACE/workdir"
 
-          # 使用ccache
-          mkdir -p ~/.cache/ccache
-          echo "USE_CCACHE=1" >> $GITHUB_ENV
-          echo "CCACHE_DIR=$HOME/.cache/ccache" >> $GITHUB_ENV
-
       - name: 扩容 /tmp 到 4GB
         run: |
           # 如果 /tmp 本身就是 tmpfs，它会调整大小；如果不是，它会挂载一个新的
@@ -660,14 +655,6 @@ jobs:
           echo "DEVICE_NAME=_$DEVICE_MODEL" >> $GITHUB_ENV
           echo "FILE_DATE=_$(date +"%Y%m%d%H%M")" >> $GITHUB_ENV
           echo "✅ 编译成功！"
-
-      - name: 查看 ccache 命中率和缓存大小
-        run: |
-          echo "=== ccache 统计信息 ==="
-          ccache -s || true
-
-          echo "=== ccache 目录大小 ==="
-          du -sh ~/.cache/ccache || true
 
       - name: 保存 ccache 缓存
         if: steps.compile.outputs.status == 'success'
