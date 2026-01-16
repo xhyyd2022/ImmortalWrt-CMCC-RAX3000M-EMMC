@@ -692,8 +692,6 @@ jobs:
         with:
           path: ~/.cache/ccache
           key: ccache-${{ env.DEVICE_MODEL }}-${{ env.REPO_BRANCH }}
-          restore-keys: |
-            ccache-${{ env.DEVICE_MODEL }}-
 
       - name: 上传编译日志
         if: failure()
