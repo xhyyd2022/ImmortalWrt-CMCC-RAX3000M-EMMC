@@ -479,6 +479,31 @@ jobs:
           sed -n '/define Device\/cmcc_rax3000m_common/,/endef/p' \
             target/linux/mediatek/image/filogic.mk
 
+      - name: 启用 ccache
+        run: |
+          cd "$GITHUB_WORKSPACE/openwrt"
+
+          echo "=== 清理之前可能出错的 ccache 配置 ==="
+          # 删除从 '# Enable ccache' 到文件结束的所有行（防重复/出错）
+          sed -i '/# Enable ccache for all builds/,$d' include/toplevel.mk
+
+          echo "=== 追加 ccache 配置 ==="
+          cat >> include/toplevel.mk << 'EOF'
+
+          # Enable ccache for all builds
+          export CCACHE_DIR
+          export CC=ccache gcc
+          export CXX=ccache g++
+
+          EOF
+
+          # 顺便再显示最后 15 行确认
+          echo "=== toplevel.mk 最后 15 行 ==="
+          tail -n 15 include/toplevel.mk
+
+          # 强制把文件转成 unix 格式 + 去掉可能的尾随空格
+          sed -i 's/[ \t]*$//' include/toplevel.mk
+
       - name: 添加 keepalived-ha 插件
         if: env.ENABLE_KEEPALIVED == 'true'
         run: |
